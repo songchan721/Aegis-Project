@@ -1,0 +1,16 @@
+name: users
+version: 1.0.0
+description: User schema
+columns:
+  - name: id
+    type: uuid
+    description: User ID
+    required: true
+  - name: username
+    type: string
+    description: Username
+    required: true
+  - name: email
+    type: string
+    description: User email
+    required: true
