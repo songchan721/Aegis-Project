@@ -17,6 +17,28 @@
 
 ## 📦 설치
 
+### Poetry를 사용하는 경우 (권장)
+
+```bash
+# 의존성 설치
+poetry install
+
+# 또는 프로덕션 의존성만 설치
+poetry install --only main
+```
+
+### pip를 사용하는 경우
+
+```bash
+# 프로덕션 의존성 설치
+pip install -r requirements.txt
+
+# 개발 의존성 포함 설치
+pip install -r requirements-dev.txt
+```
+
+### 패키지로 설치
+
 ```bash
 # Poetry를 사용하는 경우
 poetry add aegis-shared
@@ -24,6 +46,24 @@ poetry add aegis-shared
 # pip를 사용하는 경우
 pip install aegis-shared
 ```
+
+### ⚠️ 플랫폼별 주의사항
+
+**Windows 사용자**:
+- `python-magic-bin` 패키지가 자동으로 설치됩니다 (Windows용 libmagic 포함)
+- Poetry 사용시: `poetry install`로 자동 설치됨
+- Pip 사용시: `requirements-dev.txt`에 포함됨
+
+**Linux/macOS 사용자**:
+- libmagic이 시스템에 설치되어 있어야 합니다
+- Ubuntu/Debian: `sudo apt-get install libmagic1`
+- macOS: `brew install libmagic`
+- 또는 `python-magic-bin` 사용 가능
+
+**중요**: 
+- Pydantic v2를 사용하므로 `pydantic-settings` 패키지가 필요합니다
+- Redis 캐싱 테스트를 위해 `fakeredis` 패키지가 필요합니다
+- Poetry를 사용하는 경우 `poetry install` 또는 `poetry update`를 실행하여 모든 의존성을 설치하세요
 
 ## 🏗️ 아키텍처
 

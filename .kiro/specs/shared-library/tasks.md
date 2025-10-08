@@ -266,8 +266,15 @@
 
   - [x] 11.5 검증 유틸리티
     - [x] 이메일, 전화번호 검증
+    - [x] 비밀번호 강도 검증
     - [x] 커스텀 검증 함수
-    - _Requirements: 10.1_
+    - _Requirements: 10.2_
+
+  - [x] 11.6 페이지네이션 유틸리티
+    - [x] 오프셋 계산 함수
+    - [x] 페이지네이션 헬퍼
+    - [x] 파라미터 검증 및 정규화
+    - _Requirements: 10.5_
 
 - [x] 12. 중앙 스키마 레지스트리 구현
   - [x] 12.1 스키마 정의 모델 작성
@@ -431,19 +438,14 @@
     - 버전 관리 자동화
     - _Requirements: 전체 시스템_
 
-  - [ ] 16.3 CI/CD 파이프라인
-
-
-
-
-
-
-
-    - 자동 테스트 실행
-    - 자동 빌드 및 배포
-    - 버전 태깅
-
-
+  - [x] 16.3 CI/CD 파이프라인
+    - [x] GitHub Actions workflow 파일 작성 (shared-library-ci.yml)
+    - [x] 자동 테스트 실행 (252 tests)
+    - [x] 코드 품질 검사 (black, isort, flake8, mypy)
+    - [x] 보안 스캔 (bandit, safety, trivy)
+    - [x] 자동 빌드 및 배포 (Poetry build + Private PyPI)
+    - [x] 버전 태깅 자동화 (release.yml workflow)
+    - [x] CI/CD 사용 가이드 문서 작성
     - _Requirements: 전체 시스템_
 
 

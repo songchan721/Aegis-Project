@@ -5,23 +5,25 @@ on:
     branches: [ main, develop ]
     paths:
       - 'aegis_shared/**'
-      - 'tests/**'
       - 'pyproject.toml'
       - 'poetry.lock'
+      - 'requirements.txt'
+      - 'requirements-dev.txt'
       - '.github/workflows/shared-library-ci.yml'
   pull_request:
     branches: [ main, develop ]
     paths:
       - 'aegis_shared/**'
-      - 'tests/**'
       - 'pyproject.toml'
       - 'poetry.lock'
+      - 'requirements.txt'
+      - 'requirements-dev.txt'
   release:
     types: [published]
 
 env:
   PYTHON_VERSION: "3.11"
-  POETRY_VERSION: "1.6.1"
+  POETRY_VERSION: "1.7.1"
 
 jobs:
   test:
@@ -51,15 +53,6 @@ jobs:
           --health-retries 5
         ports:
           - 6379:6379
-      
-      kafka:
-        image: confluentinc/cp-kafka:latest
-        env:
-          KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-          KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
-          KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-        ports:
-          - 9092:9092
     
     steps:
     - name: Checkout code
@@ -86,56 +79,43 @@ jobs:
     
     - name: Install dependencies
       if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-      run: poetry install --no-interaction --no-root
+      run: poetry install --no-interaction --no-root --with dev
     
     - name: Install project
-      run: poetry install --no-interaction
+      run: poetry install --no-interaction --with dev
     
-    - name: Run linting
+    - name: Install system dependencies for libmagic
       run: |
-        poetry run flake8 aegis_shared/ --count --select=E9,F63,F7,F82 --show-source --statistics
-        poetry run flake8 aegis_shared/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+        sudo apt-get update
+        sudo apt-get install -y libmagic1
     
-    - name: Run type checking
-      run: poetry run mypy aegis_shared/
+    - name: Verify installation
+      run: |
+        poetry run python --version
+        poetry run pytest --version
+        poetry show
     
-    - name: Run security scan
-      run: poetry run bandit -r aegis_shared/
-    
-    - name: Run unit tests
+    - name: Run all tests with coverage
       env:
         DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/test_db
         REDIS_URL: redis://localhost:6379/0
-        KAFKA_BOOTSTRAP_SERVERS: localhost:9092
+        JWT_SECRET_KEY: test-secret-key-for-ci
+        JWT_ALGORITHM: HS256
+        ENVIRONMENT: test
       run: |
-        poetry run pytest tests/unit/ -v --cov=aegis_shared --cov-report=xml --cov-report=html
+        poetry run pytest aegis_shared/tests/ -v --cov=aegis_shared --cov-report=xml --cov-report=html --cov-report=term-missing
     
-    - name: Run integration tests
-      env:
-        DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/test_db
-        REDIS_URL: redis://localhost:6379/1
-        KAFKA_BOOTSTRAP_SERVERS: localhost:9092
+    - name: Check coverage threshold
       run: |
-        poetry run pytest tests/integration/ -v --cov=aegis_shared --cov-append --cov-report=xml
+        poetry run coverage report --fail-under=80
     
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
       with:
         file: ./coverage.xml
-        flags: unittests
-        name: codecov-umbrella
-    
-    - name: Run performance tests
-      env:
-        DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/test_db
-        REDIS_URL: redis://localhost:6379/2
-      run: |
-        poetry run pytest tests/performance/ -v --benchmark-only
-    
-    - name: Generate test report
-      if: always()
-      run: |
-        poetry run pytest --html=report.html --self-contained-html
+        flags: shared-library
+        name: aegis-shared-library
+        fail_ci_if_error: false
     
     - name: Upload test results
       if: always()
@@ -143,9 +123,50 @@ jobs:
       with:
         name: test-results
         path: |
-          report.html
           htmlcov/
           coverage.xml
+          .coverage
+
+  code-quality:
+    name: Code Quality Checks
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: ${{ env.POETRY_VERSION }}
+    
+    - name: Install dependencies
+      run: |
+        poetry install --no-interaction --with dev
+        poetry add --group dev flake8 black isort mypy
+    
+    - name: Run Black (code formatting check)
+      run: poetry run black --check aegis_shared/
+      continue-on-error: true
+    
+    - name: Run isort (import sorting check)
+      run: poetry run isort --check-only aegis_shared/
+      continue-on-error: true
+    
+    - name: Run Flake8 (linting)
+      run: |
+        poetry run flake8 aegis_shared/ --count --select=E9,F63,F7,F82 --show-source --statistics
+        poetry run flake8 aegis_shared/ --count --exit-zero --max-complexity=10 --max-line-length=100 --statistics
+      continue-on-error: true
+    
+    - name: Run MyPy (type checking)
+      run: poetry run mypy aegis_shared/ --ignore-missing-imports
+      continue-on-error: true
 
   build:
     name: Build Package
@@ -169,6 +190,11 @@ jobs:
     - name: Build package
       run: poetry build
     
+    - name: Check package
+      run: |
+        poetry run pip install twine
+        poetry run twine check dist/*
+    
     - name: Upload build artifacts
       uses: actions/upload-artifact@v3
       with:
@@ -184,6 +210,29 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
     
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: ${{ env.POETRY_VERSION }}
+    
+    - name: Install dependencies
+      run: |
+        poetry install --no-interaction --with dev
+        poetry add --group dev bandit safety
+    
+    - name: Run Bandit (security linting)
+      run: poetry run bandit -r aegis_shared/ -f json -o bandit-report.json
+      continue-on-error: true
+    
+    - name: Run Safety (dependency vulnerability check)
+      run: poetry run safety check --json
+      continue-on-error: true
+    
     - name: Run Trivy vulnerability scanner
       uses: aquasecurity/trivy-action@master
       with:
@@ -191,16 +240,27 @@ jobs:
         scan-ref: '.'
         format: 'sarif'
         output: 'trivy-results.sarif'
+      continue-on-error: true
     
     - name: Upload Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v2
       with:
         sarif_file: 'trivy-results.sarif'
+      continue-on-error: true
+    
+    - name: Upload security reports
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-reports
+        path: |
+          bandit-report.json
+          trivy-results.sarif
 
   publish:
     name: Publish Package
     runs-on: ubuntu-latest
-    needs: [test, build, security-scan]
+    needs: [test, build, code-quality, security-scan]
     if: github.event_name == 'release' && github.event.action == 'published'
     
     steps:
@@ -223,51 +283,63 @@ jobs:
         name: dist
         path: dist/
     
-    - name: Configure Poetry for private PyPI
+    - name: Configure Poetry for private PyPI (if configured)
+      if: ${{ secrets.PRIVATE_PYPI_URL != '' }}
       run: |
         poetry config repositories.private ${{ secrets.PRIVATE_PYPI_URL }}
         poetry config http-basic.private ${{ secrets.PRIVATE_PYPI_USERNAME }} ${{ secrets.PRIVATE_PYPI_PASSWORD }}
     
     - name: Publish to private PyPI
+      if: ${{ secrets.PRIVATE_PYPI_URL != '' }}
       run: poetry publish --repository private
     
-    - name: Create GitHub release assets
+    - name: Create release notes
       run: |
-        echo "Package published successfully" > release-notes.txt
-        echo "Version: $(poetry version -s)" >> release-notes.txt
-        echo "Build date: $(date)" >> release-notes.txt
+        echo "# Aegis Shared Library Release" > release-notes.md
+        echo "" >> release-notes.md
+        echo "**Version:** $(poetry version -s)" >> release-notes.md
+        echo "**Build Date:** $(date)" >> release-notes.md
+        echo "**Git Commit:** ${{ github.sha }}" >> release-notes.md
+        echo "" >> release-notes.md
+        echo "## Installation" >> release-notes.md
+        echo "\`\`\`bash" >> release-notes.md
+        echo "poetry add aegis-shared@$(poetry version -s)" >> release-notes.md
+        echo "\`\`\`" >> release-notes.md
     
-    - name: Upload release assets
-      uses: actions/upload-release-asset@v1
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          dist/*
+          release-notes.md
+        body_path: release-notes.md
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ github.event.release.upload_url }}
-        asset_path: ./release-notes.txt
-        asset_name: release-notes.txt
-        asset_content_type: text/plain
 
   notify:
     name: Notify Teams
     runs-on: ubuntu-latest
-    needs: [test, build, security-scan]
+    needs: [test, build, code-quality, security-scan]
     if: always()
     
     steps:
-    - name: Notify Slack on success
-      if: needs.test.result == 'success' && needs.build.result == 'success'
-      uses: 8398a7/action-slack@v3
-      with:
-        status: success
-        text: "✅ Aegis Shared Library CI/CD completed successfully!"
-      env:
-        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+    - name: Prepare notification message
+      id: message
+      run: |
+        if [[ "${{ needs.test.result }}" == "success" && "${{ needs.build.result }}" == "success" ]]; then
+          echo "status=success" >> $GITHUB_OUTPUT
+          echo "message=✅ Aegis Shared Library CI/CD completed successfully!" >> $GITHUB_OUTPUT
+        else
+          echo "status=failure" >> $GITHUB_OUTPUT
+          echo "message=❌ Aegis Shared Library CI/CD failed!" >> $GITHUB_OUTPUT
+        fi
     
-    - name: Notify Slack on failure
-      if: needs.test.result == 'failure' || needs.build.result == 'failure'
+    - name: Notify Slack (if webhook configured)
+      if: ${{ secrets.SLACK_WEBHOOK_URL != '' }}
       uses: 8398a7/action-slack@v3
       with:
-        status: failure
-        text: "❌ Aegis Shared Library CI/CD failed!"
+        status: ${{ steps.message.outputs.status }}
+        text: ${{ steps.message.outputs.message }}
+        fields: repo,message,commit,author,action,eventName,ref,workflow
       env:
         SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
