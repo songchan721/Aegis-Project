@@ -73,6 +73,12 @@ class DatabaseManager:
             finally:
                 await session.close()
 
+    @asynccontextmanager
+    async def get_session(self) -> AsyncGenerator[AsyncSession, None]:
+        """Alias for session() for backward compatibility."""
+        async with self.session() as session:
+            yield session
+
     async def close(self) -> None:
         """데이터베이스 연결 종료"""
         if self.engine:

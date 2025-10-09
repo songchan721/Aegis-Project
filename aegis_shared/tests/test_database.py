@@ -9,12 +9,12 @@ from sqlalchemy import Boolean, Column, DateTime, Integer, String, select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
+from aegis_shared.database.connection import DatabaseManager
 from aegis_shared.database.exceptions import (
     DatabaseConnectionError,
     DuplicateEntityError,
     EntityNotFoundError,
 )
-from aegis_shared.database.manager import DatabaseManager
 from aegis_shared.database.repository import BaseRepository
 from aegis_shared.database.retry import with_db_retry
 from aegis_shared.database.transaction import TransactionManager

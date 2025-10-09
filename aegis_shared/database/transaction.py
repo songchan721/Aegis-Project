@@ -4,7 +4,7 @@ from typing import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .manager import DatabaseManager
+from .connection import DatabaseManager
 
 
 class TransactionManager:

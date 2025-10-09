@@ -4,16 +4,49 @@ __pycache__/
 *.pyo
 *.pyd
 .Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
 env/
 venv/
+ENV/
+.venv/
 
 # Poetry
 .poetry
+poetry.lock
+
+# Testing
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.mypy_cache/
+.dmypy.json
+dmypy.json
 
 # IDEs
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 
-# Other
+# OS
 .DS_Store
-.coverage
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+
+# Documentation
+docs/_build/
+site/

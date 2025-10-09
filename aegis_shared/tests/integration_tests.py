@@ -19,7 +19,7 @@ from aegis_shared.cache.redis_client import CacheClient
 from aegis_shared.config.loader import ConfigLoader
 
 # Test imports
-from aegis_shared.database.manager import DatabaseManager
+from aegis_shared.database.connection import DatabaseManager
 from aegis_shared.database.repository import BaseRepository
 from aegis_shared.logging.config import configure_logging, get_logger
 from aegis_shared.logging.context import add_context, clear_context
