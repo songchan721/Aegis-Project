@@ -7,15 +7,10 @@ import time
 import pytest
 from prometheus_client import CollectorRegistry, Counter, Gauge, Histogram
 
-from aegis_shared.monitoring.custom_metrics import (
-    CustomMetricsManager,
-)
+from aegis_shared.monitoring.custom_metrics import CustomMetricsManager
 from aegis_shared.monitoring.endpoints import create_metrics_endpoint
 from aegis_shared.monitoring.health import HealthChecker, HealthStatus
-from aegis_shared.monitoring.metrics import (
-    MetricsCollector,
-    PrometheusMetrics,
-)
+from aegis_shared.monitoring.metrics import MetricsCollector, PrometheusMetrics
 from aegis_shared.monitoring.tracing import TracingManager
 
 
