@@ -9,11 +9,8 @@ from typing import Any, Dict
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from aegis_shared.auth.jwt_handler import (
-    InvalidTokenError,
-    JWTHandler,
-    TokenExpiredError,
-)
+from aegis_shared.auth.jwt import JWTHandler
+from aegis_shared.errors.exceptions import InvalidTokenError, TokenExpiredError
 
 security = HTTPBearer()
 

@@ -6,7 +6,7 @@ FastAPI 인증 미들웨어를 제공합니다.
 
 from typing import Callable
 
-from aegis_shared.auth.jwt_handler import JWTHandler
+from aegis_shared.auth.jwt import JWTHandler
 from aegis_shared.logging import get_logger
 
 logger = get_logger(__name__)
