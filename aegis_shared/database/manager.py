@@ -1,11 +1,14 @@
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
 from contextlib import asynccontextmanager
+
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
 
 class DatabaseManager:
     def __init__(self, database_url: str, **engine_kwargs):
         self.engine = create_async_engine(database_url, **engine_kwargs)
-        self.async_session_factory = sessionmaker(self.engine, class_=AsyncSession, expire_on_commit=False)
+        self.async_session_factory = async_sessionmaker(
+            self.engine, class_=AsyncSession, expire_on_commit=False
+        )
 
     @asynccontextmanager
     async def get_session(self) -> AsyncSession:
@@ -18,7 +21,7 @@ class DatabaseManager:
                 raise
             finally:
                 await session.close()
-    
+
     @asynccontextmanager
     async def session(self) -> AsyncSession:
         """Alias for get_session for backward compatibility."""

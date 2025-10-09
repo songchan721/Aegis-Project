@@ -1,6 +1,8 @@
-from pydantic import BaseModel, Field
 from enum import Enum
-from typing import List, Dict
+from typing import List
+
+from pydantic import BaseModel
+
 
 class MigrationStatus(str, Enum):
     PENDING = "pending"
@@ -9,9 +11,12 @@ class MigrationStatus(str, Enum):
     FAILED = "failed"
     ROLLED_BACK = "rolled_back"
 
+
 class MigrationStep(BaseModel):
     service: str
+    schema: str
     version: str
     description: str
+    sql: str = ""
     status: MigrationStatus = MigrationStatus.PENDING
     dependencies: List[str] = []

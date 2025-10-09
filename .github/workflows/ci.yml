@@ -48,10 +48,10 @@ jobs:
 
       - name: Install dependencies
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-        run: poetry install --no-interaction --no-root
+        run: poetry install --no-interaction --no-root --with dev
 
       - name: Install project
-        run: poetry install --no-interaction
+        run: poetry install --no-interaction --with dev
 
       - name: Run Black
         run: poetry run black --check aegis_shared/
@@ -122,10 +122,10 @@ jobs:
 
       - name: Install dependencies
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-        run: poetry install --no-interaction --no-root
+        run: poetry install --no-interaction --no-root --with dev
 
       - name: Install project
-        run: poetry install --no-interaction
+        run: poetry install --no-interaction --with dev
 
       - name: Run tests
         run: poetry run pytest --cov=aegis_shared --cov-report=xml
@@ -162,7 +162,7 @@ jobs:
           version: ${{ env.POETRY_VERSION }}
 
       - name: Install dependencies
-        run: poetry install --no-interaction
+        run: poetry install --no-interaction --with dev
 
       - name: Run Safety
         run: poetry run safety check

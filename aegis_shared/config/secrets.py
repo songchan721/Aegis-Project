@@ -1,6 +1,7 @@
-import os
 import base64
-from typing import Dict, Any, Optional
+import os
+from typing import Optional
+
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
@@ -9,11 +10,12 @@ from ..logging import get_logger
 
 logger = get_logger(__name__)
 
+
 class SecretManager:
     """시크릿 관리자"""
 
     def __init__(self, encryption_key: Optional[str] = None):
-        self.encryption_key = encryption_key or os.getenv('SECRET_ENCRYPTION_KEY')
+        self.encryption_key = encryption_key or os.getenv("SECRET_ENCRYPTION_KEY")
         self.fernet = None
 
         if self.encryption_key:
@@ -22,11 +24,15 @@ class SecretManager:
                 # 키 파생
                 self.encryption_key = self._derive_key(self.encryption_key)
 
-            self.fernet = Fernet(base64.urlsafe_b64encode(self.encryption_key.encode()[:32].ljust(32, b'0')))
+            self.fernet = Fernet(
+                base64.urlsafe_b64encode(
+                    self.encryption_key.encode()[:32].ljust(32, b"0")
+                )
+            )
 
     def _derive_key(self, key: str) -> str:
         """키 파생"""
-        salt = b'aegis_secret_salt_2025'
+        salt = b"aegis_secret_salt_2025"
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
             length=32,
@@ -78,55 +84,62 @@ class SecretManager:
             decoded = base64.urlsafe_b64decode(value.encode())
             # Fernet 토큰 구조 확인 (간단한 체크)
             return len(decoded) > 57  # Fernet 토큰 최소 길이
-        except:
+        except Exception:
             return False
 
     def get_database_url(self) -> str:
         """데이터베이스 URL 조회 (비밀번호 복호화)"""
-        url = self.get_secret('DATABASE_URL')
+        url = self.get_secret("DATABASE_URL")
         if not url:
             raise ValueError("DATABASE_URL not configured")
         return url
 
     def get_jwt_secret(self) -> str:
         """JWT 시크릿 조회"""
-        secret = self.get_secret('JWT_SECRET')
+        secret = self.get_secret("JWT_SECRET")
         if not secret:
             raise ValueError("JWT_SECRET not configured")
         return secret
 
     def get_redis_url(self) -> str:
         """Redis URL 조회 (비밀번호 복호화)"""
-        url = self.get_secret('REDIS_URL', 'redis://localhost:6379/0')
+        url = self.get_secret("REDIS_URL", "redis://localhost:6379/0")
         return url
 
     def get_kafka_servers(self) -> str:
         """Kafka 서버 목록 조회"""
-        servers = self.get_secret('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')
+        servers = self.get_secret("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
         return servers
+
 
 # 전역 시크릿 관리자
 _secret_manager = SecretManager()
+
 
 def get_secret_manager() -> SecretManager:
     """전역 시크릿 관리자 조회"""
     return _secret_manager
 
+
 def get_secret(key: str, default: Optional[str] = None) -> Optional[str]:
     """시크릿 조회"""
     return _secret_manager.get_secret(key, default)
+
 
 def get_database_url() -> str:
     """데이터베이스 URL 조회"""
     return _secret_manager.get_database_url()
 
+
 def get_jwt_secret() -> str:
     """JWT 시크릿 조회"""
     return _secret_manager.get_jwt_secret()
 
+
 def get_redis_url() -> str:
     """Redis URL 조회"""
     return _secret_manager.get_redis_url()
+
 
 def get_kafka_servers() -> str:
     """Kafka 서버 목록 조회"""
