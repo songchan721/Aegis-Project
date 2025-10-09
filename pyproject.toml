@@ -51,9 +51,6 @@ python-json-logger = "^2.0.7"
 uvicorn = "^0.24.0"
 httpx = "^0.25.2"
 
-[tool.poetry.extras]
-files = ["python-magic-bin"]
-
 [tool.poetry.group.dev.dependencies]
 python-magic-bin = "^0.4.14"
 pytest = "^7.4.3"
