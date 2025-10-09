@@ -1,5 +1,6 @@
-import pytest
 import fakeredis.aioredis
+import pytest
+
 from aegis_shared.cache.redis_client import CacheClient
 
 
@@ -9,7 +10,7 @@ async def redis_client():
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     yield fake_redis
     await fake_redis.flushall()
-    if hasattr(fake_redis, 'aclose'):
+    if hasattr(fake_redis, "aclose"):
         await fake_redis.aclose()
     else:
         await fake_redis.close()
@@ -26,6 +27,7 @@ async def cache_client(redis_client):
 # ============================================================================
 # Test 1: Basic Cache Operations
 # ============================================================================
+
 
 class TestBasicCacheOperations:
     """기본 캐시 작업 테스트"""
@@ -123,6 +125,7 @@ class TestBasicCacheOperations:
 # Test 2: Pattern-based Operations
 # ============================================================================
 
+
 class TestPatternOperations:
     """패턴 기반 작업 테스트"""
 
@@ -167,6 +170,7 @@ class TestPatternOperations:
 # ============================================================================
 # Test 3: Caching Decorator
 # ============================================================================
+
 
 class TestCachingDecorator:
     """캐싱 데코레이터 테스트"""
@@ -218,12 +222,13 @@ class TestCachingDecorator:
         assert result1 == result2
 
         # 다른 kwargs - 캐시 미스
-        result3 = await get_user(1, include_deleted=False)
+        await get_user(1, include_deleted=False)
         assert call_count == 2
 
     @pytest.mark.asyncio
     async def test_cached_decorator_with_key_prefix(self, cache_client):
         """key_prefix를 사용한 캐싱 데코레이터 테스트"""
+
         @cache_client.cached(ttl=60, key_prefix="v1:")
         async def get_data(key: str) -> str:
             return f"data_{key}"
@@ -239,6 +244,7 @@ class TestCachingDecorator:
 # ============================================================================
 # Test 4: Metrics and Hit Rate
 # ============================================================================
+
 
 class TestMetrics:
     """메트릭 및 히트율 테스트"""
@@ -293,6 +299,7 @@ class TestMetrics:
 # Test 5: Error Handling
 # ============================================================================
 
+
 class TestErrorHandling:
     """에러 처리 테스트"""
 
@@ -309,6 +316,7 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_set_with_non_serializable_data(self, cache_client):
         """직렬화 불가능한 데이터 처리 테스트"""
+
         class NonSerializable:
             pass
 
@@ -319,6 +327,7 @@ class TestErrorHandling:
 # ============================================================================
 # Test 6: Integration Test
 # ============================================================================
+
 
 async def test_cache_workflow_integration(cache_client):
     """캐시 워크플로우 통합 테스트"""

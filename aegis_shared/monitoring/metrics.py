@@ -4,65 +4,91 @@
 Prometheus 메트릭 수집 기능을 제공합니다.
 """
 
-import time
-import functools
 import asyncio
-from typing import Dict, Any, Callable, Optional
-from prometheus_client import CollectorRegistry, Counter, Histogram, Gauge, generate_latest
+import functools
+import time
+from typing import Any, Callable, Dict, Optional
+
+from prometheus_client import (
+    CollectorRegistry,
+    Counter,
+    Gauge,
+    Histogram,
+    generate_latest,
+)
+
 from aegis_shared.logging import get_logger
 
 logger = get_logger(__name__)
 
+
 def track_metrics(metric_name: str, labels: Dict[str, str] = None):
     """메트릭 추적 데코레이터 (sync/async 모두 지원)"""
+
     def decorator(func: Callable):
         is_async = asyncio.iscoroutinefunction(func)
 
         if is_async:
+
             @functools.wraps(func)
             async def async_wrapper(*args, **kwargs):
                 start_time = time.time()
 
                 # 메트릭 수집기 인스턴스 가져오기
-                metrics = getattr(args[0], 'metrics', None) if args else None
+                metrics = getattr(args[0], "metrics", None) if args else None
                 if not metrics:
                     metrics = MetricsCollector()
 
                 try:
                     result = await func(*args, **kwargs)
-                    metrics.increment_counter(f"{metric_name}_total", {**(labels or {}), "status": "success"})
+                    metrics.increment_counter(
+                        f"{metric_name}_total", {**(labels or {}), "status": "success"}
+                    )
                     return result
-                except Exception as e:
-                    metrics.increment_counter(f"{metric_name}_total", {**(labels or {}), "status": "error"})
+                except Exception:
+                    metrics.increment_counter(
+                        f"{metric_name}_total", {**(labels or {}), "status": "error"}
+                    )
                     raise
                 finally:
                     duration = time.time() - start_time
-                    metrics.observe_histogram(f"{metric_name}_duration_seconds", duration, labels)
+                    metrics.observe_histogram(
+                        f"{metric_name}_duration_seconds", duration, labels
+                    )
 
             return async_wrapper
         else:
+
             @functools.wraps(func)
             def sync_wrapper(*args, **kwargs):
                 start_time = time.time()
 
                 # 메트릭 수집기 인스턴스 가져오기
-                metrics = getattr(args[0], 'metrics', None) if args else None
+                metrics = getattr(args[0], "metrics", None) if args else None
                 if not metrics:
                     metrics = MetricsCollector()
 
                 try:
                     result = func(*args, **kwargs)
-                    metrics.increment_counter(f"{metric_name}_total", {**(labels or {}), "status": "success"})
+                    metrics.increment_counter(
+                        f"{metric_name}_total", {**(labels or {}), "status": "success"}
+                    )
                     return result
-                except Exception as e:
-                    metrics.increment_counter(f"{metric_name}_total", {**(labels or {}), "status": "error"})
+                except Exception:
+                    metrics.increment_counter(
+                        f"{metric_name}_total", {**(labels or {}), "status": "error"}
+                    )
                     raise
                 finally:
                     duration = time.time() - start_time
-                    metrics.observe_histogram(f"{metric_name}_duration_seconds", duration, labels)
+                    metrics.observe_histogram(
+                        f"{metric_name}_duration_seconds", duration, labels
+                    )
 
             return sync_wrapper
+
     return decorator
+
 
 class MetricsCollector:
     """메트릭 수집기 (Prometheus 통합)"""
@@ -79,7 +105,9 @@ class MetricsCollector:
         self._histograms: Dict[str, Histogram] = {}
         self._gauges: Dict[str, Gauge] = {}
 
-    def increment_counter(self, name: str, labels: Dict[str, str] = None, value: float = 1) -> None:
+    def increment_counter(
+        self, name: str, labels: Dict[str, str] = None, value: float = 1
+    ) -> None:
         """
         카운터 메트릭 증가
 
@@ -92,9 +120,9 @@ class MetricsCollector:
             label_names = list(labels.keys()) if labels else []
             self._counters[name] = Counter(
                 name,
-                f'Counter metric: {name}',
+                f"Counter metric: {name}",
                 labelnames=label_names,
-                registry=self.registry
+                registry=self.registry,
             )
 
         if labels:
@@ -104,7 +132,9 @@ class MetricsCollector:
 
         logger.debug(f"Counter incremented: {name}", labels=labels)
 
-    def observe_histogram(self, name: str, value: float, labels: Dict[str, str] = None) -> None:
+    def observe_histogram(
+        self, name: str, value: float, labels: Dict[str, str] = None
+    ) -> None:
         """
         히스토그램 메트릭 관찰
 
@@ -117,9 +147,9 @@ class MetricsCollector:
             label_names = list(labels.keys()) if labels else []
             self._histograms[name] = Histogram(
                 name,
-                f'Histogram metric: {name}',
+                f"Histogram metric: {name}",
                 labelnames=label_names,
-                registry=self.registry
+                registry=self.registry,
             )
 
         if labels:
@@ -142,9 +172,9 @@ class MetricsCollector:
             label_names = list(labels.keys()) if labels else []
             self._gauges[name] = Gauge(
                 name,
-                f'Gauge metric: {name}',
+                f"Gauge metric: {name}",
                 labelnames=label_names,
-                registry=self.registry
+                registry=self.registry,
             )
 
         if labels:
@@ -156,10 +186,12 @@ class MetricsCollector:
 
     def track_requests(self):
         """요청 추적 데코레이터 (sync/async 모두 지원)"""
+
         def decorator(func: Callable):
             is_async = asyncio.iscoroutinefunction(func)
 
             if is_async:
+
                 @functools.wraps(func)
                 async def async_wrapper(*args, **kwargs):
                     start_time = time.time()
@@ -168,7 +200,7 @@ class MetricsCollector:
                         result = await func(*args, **kwargs)
                         self.increment_counter("requests_total", {"status": "success"})
                         return result
-                    except Exception as e:
+                    except Exception:
                         self.increment_counter("requests_total", {"status": "error"})
                         raise
                     finally:
@@ -177,6 +209,7 @@ class MetricsCollector:
 
                 return async_wrapper
             else:
+
                 @functools.wraps(func)
                 def sync_wrapper(*args, **kwargs):
                     start_time = time.time()
@@ -185,7 +218,7 @@ class MetricsCollector:
                         result = func(*args, **kwargs)
                         self.increment_counter("requests_total", {"status": "success"})
                         return result
-                    except Exception as e:
+                    except Exception:
                         self.increment_counter("requests_total", {"status": "error"})
                         raise
                     finally:
@@ -193,23 +226,28 @@ class MetricsCollector:
                         self.observe_histogram("request_duration_seconds", duration)
 
                 return sync_wrapper
+
         return decorator
 
     def track_database_queries(self):
         """데이터베이스 쿼리 추적 데코레이터 (sync/async 모두 지원)"""
+
         def decorator(func: Callable):
             is_async = asyncio.iscoroutinefunction(func)
 
             if is_async:
+
                 @functools.wraps(func)
                 async def async_wrapper(*args, **kwargs):
                     start_time = time.time()
 
                     try:
                         result = await func(*args, **kwargs)
-                        self.increment_counter("db_queries_total", {"status": "success"})
+                        self.increment_counter(
+                            "db_queries_total", {"status": "success"}
+                        )
                         return result
-                    except Exception as e:
+                    except Exception:
                         self.increment_counter("db_queries_total", {"status": "error"})
                         raise
                     finally:
@@ -218,15 +256,18 @@ class MetricsCollector:
 
                 return async_wrapper
             else:
+
                 @functools.wraps(func)
                 def sync_wrapper(*args, **kwargs):
                     start_time = time.time()
 
                     try:
                         result = func(*args, **kwargs)
-                        self.increment_counter("db_queries_total", {"status": "success"})
+                        self.increment_counter(
+                            "db_queries_total", {"status": "success"}
+                        )
                         return result
-                    except Exception as e:
+                    except Exception:
                         self.increment_counter("db_queries_total", {"status": "error"})
                         raise
                     finally:
@@ -234,6 +275,7 @@ class MetricsCollector:
                         self.observe_histogram("db_query_duration_seconds", duration)
 
                 return sync_wrapper
+
         return decorator
 
     def track_custom(self, metric_name: str, labels: list[str] = None):
@@ -244,10 +286,12 @@ class MetricsCollector:
             metric_name: 메트릭 이름
             labels: 라벨 이름 리스트 (함수의 kwargs에서 자동 추출)
         """
+
         def decorator(func: Callable):
             is_async = asyncio.iscoroutinefunction(func)
 
             if is_async:
+
                 @functools.wraps(func)
                 async def async_wrapper(*args, **kwargs):
                     start_time = time.time()
@@ -261,17 +305,25 @@ class MetricsCollector:
 
                     try:
                         result = await func(*args, **kwargs)
-                        self.increment_counter(f"{metric_name}_total", {**label_values, "status": "success"})
+                        self.increment_counter(
+                            f"{metric_name}_total",
+                            {**label_values, "status": "success"},
+                        )
                         return result
-                    except Exception as e:
-                        self.increment_counter(f"{metric_name}_total", {**label_values, "status": "error"})
+                    except Exception:
+                        self.increment_counter(
+                            f"{metric_name}_total", {**label_values, "status": "error"}
+                        )
                         raise
                     finally:
                         duration = time.time() - start_time
-                        self.observe_histogram(f"{metric_name}_duration_seconds", duration, label_values)
+                        self.observe_histogram(
+                            f"{metric_name}_duration_seconds", duration, label_values
+                        )
 
                 return async_wrapper
             else:
+
                 @functools.wraps(func)
                 def sync_wrapper(*args, **kwargs):
                     start_time = time.time()
@@ -285,16 +337,24 @@ class MetricsCollector:
 
                     try:
                         result = func(*args, **kwargs)
-                        self.increment_counter(f"{metric_name}_total", {**label_values, "status": "success"})
+                        self.increment_counter(
+                            f"{metric_name}_total",
+                            {**label_values, "status": "success"},
+                        )
                         return result
-                    except Exception as e:
-                        self.increment_counter(f"{metric_name}_total", {**label_values, "status": "error"})
+                    except Exception:
+                        self.increment_counter(
+                            f"{metric_name}_total", {**label_values, "status": "error"}
+                        )
                         raise
                     finally:
                         duration = time.time() - start_time
-                        self.observe_histogram(f"{metric_name}_duration_seconds", duration, label_values)
+                        self.observe_histogram(
+                            f"{metric_name}_duration_seconds", duration, label_values
+                        )
 
                 return sync_wrapper
+
         return decorator
 
     def generate_metrics(self) -> Dict[str, Any]:
@@ -307,7 +367,7 @@ class MetricsCollector:
         return {
             "counters": {name: counter for name, counter in self._counters.items()},
             "histograms": {name: hist for name, hist in self._histograms.items()},
-            "gauges": {name: gauge for name, gauge in self._gauges.items()}
+            "gauges": {name: gauge for name, gauge in self._gauges.items()},
         }
 
     def get_metrics_output(self) -> str:
@@ -317,7 +377,7 @@ class MetricsCollector:
         Returns:
             Prometheus 텍스트 형식의 메트릭
         """
-        return generate_latest(self.registry).decode('utf-8')
+        return generate_latest(self.registry).decode("utf-8")
 
 
 class PrometheusMetrics:
@@ -335,7 +395,9 @@ class PrometheusMetrics:
         self._histograms: Dict[str, Histogram] = {}
         self._gauges: Dict[str, Gauge] = {}
 
-    def increment_counter(self, name: str, labels: Dict[str, Any] = None, value: float = 1) -> None:
+    def increment_counter(
+        self, name: str, labels: Dict[str, Any] = None, value: float = 1
+    ) -> None:
         """
         카운터 증가
 
@@ -348,9 +410,9 @@ class PrometheusMetrics:
             label_names = list(labels.keys()) if labels else []
             self._counters[name] = Counter(
                 name,
-                f'Counter metric: {name}',
+                f"Counter metric: {name}",
                 labelnames=label_names,
-                registry=self.registry
+                registry=self.registry,
             )
 
         if labels:
@@ -358,7 +420,9 @@ class PrometheusMetrics:
         else:
             self._counters[name].inc(value)
 
-    def observe_histogram(self, name: str, value: float, labels: Dict[str, Any] = None) -> None:
+    def observe_histogram(
+        self, name: str, value: float, labels: Dict[str, Any] = None
+    ) -> None:
         """
         히스토그램 관찰
 
@@ -371,9 +435,9 @@ class PrometheusMetrics:
             label_names = list(labels.keys()) if labels else []
             self._histograms[name] = Histogram(
                 name,
-                f'Histogram metric: {name}',
+                f"Histogram metric: {name}",
                 labelnames=label_names,
-                registry=self.registry
+                registry=self.registry,
             )
 
         if labels:
@@ -381,7 +445,9 @@ class PrometheusMetrics:
         else:
             self._histograms[name].observe(value)
 
-    def set_gauge(self, name: str, labels: Dict[str, Any] = None, value: float = 0) -> None:
+    def set_gauge(
+        self, name: str, labels: Dict[str, Any] = None, value: float = 0
+    ) -> None:
         """
         게이지 설정
 
@@ -394,9 +460,9 @@ class PrometheusMetrics:
             label_names = list(labels.keys()) if labels else []
             self._gauges[name] = Gauge(
                 name,
-                f'Gauge metric: {name}',
+                f"Gauge metric: {name}",
                 labelnames=label_names,
-                registry=self.registry
+                registry=self.registry,
             )
 
         if labels:
@@ -411,4 +477,4 @@ class PrometheusMetrics:
         Returns:
             Prometheus 텍스트 형식의 메트릭
         """
-        return generate_latest(self.registry).decode('utf-8')
+        return generate_latest(self.registry).decode("utf-8")

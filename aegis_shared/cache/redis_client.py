@@ -4,20 +4,23 @@ Redis 캐시 클라이언트
 Redis 기반 캐싱 기능을 제공합니다.
 """
 
-import json
 import functools
-from typing import Any, Optional, Callable, List
-from aegis_shared.logging import get_logger
+import json
+from typing import Any, Callable, List, Optional
+
 from prometheus_client import Counter
+
+from aegis_shared.logging import get_logger
 
 logger = get_logger(__name__)
 
 CACHE_HITS = Counter("cache_hits_total", "Total cache hits", ["function"])
 CACHE_MISSES = Counter("cache_misses_total", "Total cache misses", ["function"])
 
+
 class CacheClient:
     """Redis 캐시 클라이언트"""
-    
+
     def __init__(self, redis_client):
         """
         캐시 클라이언트 초기화
@@ -28,7 +31,7 @@ class CacheClient:
         self.redis_client = redis_client
         self._hit_count = 0
         self._miss_count = 0
-    
+
     async def get(self, key: str) -> Optional[Any]:
         """
         캐시에서 값 조회
@@ -44,13 +47,13 @@ class CacheClient:
             if value:
                 # decode_responses=True면 이미 문자열, 아니면 bytes
                 if isinstance(value, bytes):
-                    value = value.decode('utf-8')
+                    value = value.decode("utf-8")
                 return json.loads(value)
             return None
         except Exception as e:
             logger.error(f"Cache get error: {e}", key=key)
             return None
-    
+
     async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
         """
         캐시에 값 저장
@@ -73,14 +76,14 @@ class CacheClient:
         except Exception as e:
             logger.error(f"Cache set error: {e}", key=key)
             return False
-    
+
     async def delete(self, key: str) -> bool:
         """
         캐시에서 값 삭제
-        
+
         Args:
             key: 캐시 키
-            
+
         Returns:
             성공 여부
         """
@@ -90,7 +93,7 @@ class CacheClient:
         except Exception as e:
             logger.error(f"Cache delete error: {e}", key=key)
             return False
-    
+
     def cached(self, ttl: int = 300, key_prefix: str = ""):
         """
         캐싱 데코레이터
@@ -102,6 +105,7 @@ class CacheClient:
         Returns:
             데코레이터 함수
         """
+
         def decorator(func: Callable):
             @functools.wraps(func)
             async def wrapper(*args, **kwargs):
@@ -132,6 +136,7 @@ class CacheClient:
                 return result
 
             return wrapper
+
         return decorator
 
     async def delete_pattern(self, pattern: str) -> int:
@@ -206,7 +211,7 @@ class CacheClient:
         """Redis 연결 종료"""
         try:
             # aclose()가 있으면 사용, 없으면 close() 사용
-            if hasattr(self.redis_client, 'aclose'):
+            if hasattr(self.redis_client, "aclose"):
                 await self.redis_client.aclose()
             else:
                 await self.redis_client.close()

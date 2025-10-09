@@ -1,5 +1,7 @@
-import redis.asyncio as redis
 from typing import Optional
+
+import redis.asyncio as redis
+
 
 class RedisClient:
     def __init__(self, redis_url: str):

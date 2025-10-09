@@ -1,12 +1,13 @@
 import asyncio
 import json
-from typing import Dict, Any, Optional, List
-from datetime import datetime, UTC
+from datetime import UTC, datetime
+from typing import Any, Dict, List, Optional
 
-from .schemas import VersionedEvent, EventMessage
 from ..logging import get_logger
+from .schemas import EventMessage, VersionedEvent
 
 logger = get_logger(__name__)
+
 
 class EventPublisher:
     """기본 이벤트 발행자"""
@@ -32,17 +33,21 @@ class EventPublisher:
 
             self.producer = AIOKafkaProducer(
                 bootstrap_servers=self.bootstrap_servers,
-                value_serializer=lambda v: json.dumps(v.dict() if hasattr(v, 'dict') else v).encode('utf-8'),
-                key_serializer=lambda k: k.encode('utf-8') if k else None,
-                acks='all',
+                value_serializer=lambda v: json.dumps(
+                    v.dict() if hasattr(v, "dict") else v
+                ).encode("utf-8"),
+                key_serializer=lambda k: k.encode("utf-8") if k else None,
+                acks="all",
                 retries=3,
-                retry_backoff_ms=1000
+                retry_backoff_ms=1000,
             )
 
             await self.producer.start()
             self._is_running = True
 
-            logger.info("event_publisher_started", bootstrap_servers=self.bootstrap_servers)
+            logger.info(
+                "event_publisher_started", bootstrap_servers=self.bootstrap_servers
+            )
 
         except Exception as e:
             logger.error("event_publisher_start_failed", error=str(e))
@@ -64,7 +69,7 @@ class EventPublisher:
         event: Optional[VersionedEvent] = None,
         key: Optional[str] = None,
         headers: Optional[Dict[str, str]] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         """이벤트 발행 - 유연한 인터페이스"""
         if not self._is_running:
@@ -74,12 +79,16 @@ class EventPublisher:
             # Create event if not provided
             if event is None:
                 if event_type is None or data is None:
-                    raise ValueError("Either 'event' or both 'event_type' and 'data' must be provided")
+                    raise ValueError(
+                        "Either 'event' or both 'event_type' and 'data' "
+                        "must be provided"
+                    )
 
                 # Get context metadata if available
                 event_metadata = metadata or {}
                 try:
                     from ..logging.context import get_context
+
                     context = get_context()
                     if context:
                         # Merge context into metadata
@@ -91,16 +100,18 @@ class EventPublisher:
                     event_type=event_type,
                     version=version,
                     timestamp=datetime.now(UTC),
-                    source=getattr(self, 'source', 'aegis-service'),
+                    source=getattr(self, "source", "aegis-service"),
                     data=data,
-                    metadata=event_metadata
+                    metadata=event_metadata,
                 )
             # 헤더 설정
             if headers is None:
                 headers = {}
 
             # Check if this is a mock by looking for _mock_name or similar attributes
-            is_mock = hasattr(self.producer, '_mock_name') or type(self.producer).__name__ in ('AsyncMock', 'MagicMock', 'Mock')
+            is_mock = hasattr(self.producer, "_mock_name") or type(
+                self.producer
+            ).__name__ in ("AsyncMock", "MagicMock", "Mock")
 
             if is_mock:
                 # Simple send for mocked producer
@@ -110,31 +121,28 @@ class EventPublisher:
                     "timestamp": event.timestamp.isoformat(),
                     "source": event.source,
                     "data": event.data,
-                    "metadata": event.metadata
+                    "metadata": event.metadata,
                 }
                 await self.producer.send(topic, event_dict, key=key)
             else:
                 # Real Kafka producer
                 message = EventMessage(
-                    topic=topic,
-                    key=key,
-                    value=event,
-                    headers=headers
+                    topic=topic, key=key, value=event, headers=headers
                 )
 
                 await self.producer.send_and_wait(
                     topic,
                     value=message.value,
                     key=message.key,
-                    headers=[(k, v.encode()) for k, v in message.headers.items()]
+                    headers=[(k, v.encode()) for k, v in message.headers.items()],
                 )
 
             logger.info(
                 "event_published",
                 topic=topic,
-                event_type=event_type or getattr(event, 'event_type', 'unknown'),
+                event_type=event_type or getattr(event, "event_type", "unknown"),
                 version=event.version,
-                key=key
+                key=key,
             )
 
         except Exception as e:
@@ -142,15 +150,12 @@ class EventPublisher:
                 "event_publish_failed",
                 topic=topic,
                 event_type=event.event_type,
-                error=str(e)
+                error=str(e),
             )
             raise
 
     async def publish_batch(
-        self,
-        topic: str,
-        events: List[Dict[str, Any]],
-        version: str = "1.0.0"
+        self, topic: str, events: List[Dict[str, Any]], version: str = "1.0.0"
     ) -> None:
         """Publish multiple events in batch."""
         for event_data in events:
@@ -160,8 +165,10 @@ class EventPublisher:
                 data=event_data.get("data"),
                 version=event_data.get("version", version),
                 key=event_data.get("key"),
-                metadata=event_data.get("metadata")
+                metadata=event_data.get("metadata"),
             )
+
+
 class VersionedEventPublisher(EventPublisher):
     """버전 관리되는 이벤트 발행자"""
 
@@ -176,7 +183,7 @@ class VersionedEventPublisher(EventPublisher):
         data: Dict[str, Any],
         version: str = "1.0.0",
         key: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         """버전 관리되는 이벤트 발행"""
 
@@ -187,7 +194,7 @@ class VersionedEventPublisher(EventPublisher):
             timestamp=datetime.now(UTC),
             source=self.source,
             data=data,
-            metadata=metadata or {}
+            metadata=metadata or {},
         )
 
         # 발행
@@ -202,10 +209,7 @@ class EventPublisherManager:
         self._lock = asyncio.Lock()
 
     async def get_publisher(
-        self,
-        name: str,
-        bootstrap_servers: str,
-        source: str = "unknown"
+        self, name: str, bootstrap_servers: str, source: str = "unknown"
     ) -> VersionedEventPublisher:
         """이벤트 발행자 조회 (싱글톤 패턴)"""
         async with self._lock:
@@ -223,13 +227,17 @@ class EventPublisherManager:
                 await publisher.stop()
             self.publishers.clear()
 
+
 # 전역 인스턴스
 _publisher_manager = EventPublisherManager()
+
 
 def get_event_publisher(
     name: str = "default",
     bootstrap_servers: str = "localhost:9092",
-    source: str = "aegis-service"
+    source: str = "aegis-service",
 ) -> VersionedEventPublisher:
     """전역 이벤트 발행자 조회"""
-    return asyncio.run(_publisher_manager.get_publisher(name, bootstrap_servers, source))
+    return asyncio.run(
+        _publisher_manager.get_publisher(name, bootstrap_servers, source)
+    )

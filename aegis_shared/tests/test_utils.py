@@ -9,38 +9,35 @@ Tests cover:
 - Validation utilities (email, phone, password)
 - Pagination utilities (offset calculation, parameter validation)
 """
-import pytest
-import tempfile
+
 import os
-from datetime import datetime, timezone
-from pathlib import Path
+import tempfile
+from datetime import datetime
+
+import pytest
 import pytz
 
-from aegis_shared.utils.time import utcnow, to_utc, format_datetime, parse_datetime
-from aegis_shared.utils.string import to_slug
+from aegis_shared.models.pagination import PaginatedResponse
 from aegis_shared.utils.crypto import (
-    hash_password,
     check_password,
-    generate_key,
+    decrypt,
     encrypt,
-    decrypt
+    generate_key,
+    hash_password,
 )
 from aegis_shared.utils.files import get_mime_type, is_allowed_file_type
-from aegis_shared.utils.validation import (
-    is_email,
-    is_phone_number,
-    is_strong_password
-)
 from aegis_shared.utils.pagination import (
     calculate_offset,
     calculate_total_pages,
     paginate,
-    validate_pagination_params
+    validate_pagination_params,
 )
-from aegis_shared.models.pagination import PaginatedResponse
-
+from aegis_shared.utils.string import to_slug
+from aegis_shared.utils.time import format_datetime, parse_datetime, to_utc, utcnow
+from aegis_shared.utils.validation import is_email, is_phone_number, is_strong_password
 
 # ==================== Time Utilities Tests ====================
+
 
 class TestTimeUtils:
     """Test time utility functions."""
@@ -59,7 +56,7 @@ class TestTimeUtils:
 
     def test_to_utc_aware_datetime(self):
         """Test converting timezone-aware datetime to UTC."""
-        eastern = pytz.timezone('US/Eastern')
+        eastern = pytz.timezone("US/Eastern")
         eastern_dt = eastern.localize(datetime(2024, 1, 15, 12, 0, 0))
         utc_dt = to_utc(eastern_dt)
         assert utc_dt.tzinfo == pytz.utc
@@ -101,6 +98,7 @@ class TestTimeUtils:
 
 # ==================== String Utilities Tests ====================
 
+
 class TestStringUtils:
     """Test string utility functions."""
 
@@ -113,7 +111,8 @@ class TestStringUtils:
         assert to_slug("Hello   World") == "hello-world"
 
     def test_to_slug_with_special_chars(self):
-        """Test slug generation removes special characters but keeps spaces as dashes."""
+        """Test slug generation removes special characters but keeps spaces
+        as dashes."""
         assert to_slug("Hello, World!") == "hello-world"
 
     def test_to_slug_with_underscores(self):
@@ -139,6 +138,7 @@ class TestStringUtils:
 
 # ==================== Crypto Utilities Tests ====================
 
+
 class TestCryptoUtils:
     """Test cryptography utility functions."""
 
@@ -149,7 +149,8 @@ class TestCryptoUtils:
         assert len(hashed) > 0
 
     def test_hash_password_different_each_time(self):
-        """Test that hashing the same password produces different results (due to salt)."""
+        """Test that hashing the same password produces different results
+        (due to salt)."""
         password = "password123"
         hash1 = hash_password(password)
         hash2 = hash_password(password)
@@ -207,61 +208,63 @@ class TestCryptoUtils:
 
 # ==================== File Utilities Tests ====================
 
+
 class TestFileUtils:
     """Test file utility functions."""
 
     def test_get_mime_type_text_file(self):
         """Test MIME type detection for text file."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
             f.write("Hello, world!")
             temp_path = f.name
 
         try:
             mime_type = get_mime_type(temp_path)
-            assert mime_type.startswith('text/')
+            assert mime_type.startswith("text/")
         finally:
             os.unlink(temp_path)
 
     def test_get_mime_type_json_file(self):
         """Test MIME type detection for JSON file."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             f.write('{"key": "value"}')
             temp_path = f.name
 
         try:
             mime_type = get_mime_type(temp_path)
             # Could be application/json or text/plain depending on magic
-            assert 'json' in mime_type or 'text' in mime_type
+            assert "json" in mime_type or "text" in mime_type
         finally:
             os.unlink(temp_path)
 
     def test_is_allowed_file_type_allowed(self):
         """Test file type validation with allowed type."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
             f.write("Hello, world!")
             temp_path = f.name
 
         try:
             mime_type = get_mime_type(temp_path)
-            allowed_types = [mime_type, 'application/pdf']
+            allowed_types = [mime_type, "application/pdf"]
             assert is_allowed_file_type(temp_path, allowed_types) is True
         finally:
             os.unlink(temp_path)
 
     def test_is_allowed_file_type_not_allowed(self):
         """Test file type validation with disallowed type."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
             f.write("Hello, world!")
             temp_path = f.name
 
         try:
-            allowed_types = ['application/pdf', 'image/jpeg']
+            allowed_types = ["application/pdf", "image/jpeg"]
             assert is_allowed_file_type(temp_path, allowed_types) is False
         finally:
             os.unlink(temp_path)
 
 
 # ==================== Validation Utilities Tests ====================
+
 
 class TestValidationUtils:
     """Test validation utility functions."""
@@ -351,6 +354,7 @@ class TestValidationUtils:
 
 
 # ==================== Pagination Utilities Tests ====================
+
 
 class TestPaginationUtils:
     """Test pagination utility functions."""
@@ -446,7 +450,9 @@ class TestPaginationUtils:
 
     def test_validate_pagination_params_exceeds_max(self):
         """Test validation with page size exceeding max."""
-        page, page_size = validate_pagination_params(page=1, page_size=200, max_page_size=100)
+        page, page_size = validate_pagination_params(
+            page=1, page_size=200, max_page_size=100
+        )
         assert page == 1
         assert page_size == 100  # Should be capped at max
 
@@ -457,11 +463,14 @@ class TestPaginationUtils:
 
     def test_validate_pagination_params_custom_max(self):
         """Test validation with custom max page size."""
-        page, page_size = validate_pagination_params(page=1, page_size=50, max_page_size=25)
+        page, page_size = validate_pagination_params(
+            page=1, page_size=50, max_page_size=25
+        )
         assert page_size == 25  # Should be capped at custom max
 
 
 # ==================== Integration Tests ====================
+
 
 def test_utils_integration():
     """Integration test combining multiple utilities."""
@@ -487,10 +496,10 @@ def test_utils_integration():
 
     # 5. Encryption
     key = generate_key()
-    sensitive_data = email.encode('utf-8')
+    sensitive_data = email.encode("utf-8")
     encrypted = encrypt(sensitive_data, key)
     decrypted = decrypt(encrypted, key)
-    assert decrypted.decode('utf-8') == email
+    assert decrypted.decode("utf-8") == email
 
     # 6. Pagination utilities
     page, page_size = validate_pagination_params(page=1, page_size=10)

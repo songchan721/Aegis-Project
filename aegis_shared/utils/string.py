@@ -1,5 +1,6 @@
 import re
 
+
 def to_slug(s: str) -> str:
     s = s.lower().strip()
     s = re.sub(r"[\s_-]+", "-", s)

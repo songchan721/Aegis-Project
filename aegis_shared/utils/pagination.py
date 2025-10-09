@@ -3,10 +3,12 @@
 
 이 모듈은 페이지네이션 관련 헬퍼 함수를 제공합니다.
 """
-from typing import TypeVar, Generic, List
+
+from typing import List, TypeVar
+
 from aegis_shared.models.pagination import PaginatedResponse
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 def calculate_offset(page: int, page_size: int) -> int:
@@ -41,7 +43,9 @@ def calculate_total_pages(total: int, page_size: int) -> int:
     return (total + page_size - 1) // page_size
 
 
-def paginate(items: List[T], total: int, page: int, page_size: int) -> PaginatedResponse[T]:
+def paginate(
+    items: List[T], total: int, page: int, page_size: int
+) -> PaginatedResponse[T]:
     """
     항목 리스트를 페이지네이션 응답으로 변환합니다.
 
@@ -55,14 +59,13 @@ def paginate(items: List[T], total: int, page: int, page_size: int) -> Paginated
         페이지네이션 응답 객체
     """
     return PaginatedResponse.create(
-        items=items,
-        total=total,
-        page=page,
-        page_size=page_size
+        items=items, total=total, page=page, page_size=page_size
     )
 
 
-def validate_pagination_params(page: int, page_size: int, max_page_size: int = 100) -> tuple[int, int]:
+def validate_pagination_params(
+    page: int, page_size: int, max_page_size: int = 100
+) -> tuple[int, int]:
     """
     페이지네이션 파라미터를 검증하고 정규화합니다.
 

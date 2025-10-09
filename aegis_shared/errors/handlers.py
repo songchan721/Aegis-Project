@@ -1,14 +1,16 @@
 import traceback
-from typing import Callable, Dict, Any
-from datetime import datetime, UTC
-from fastapi import Request, HTTPException
-from fastapi.responses import JSONResponse
-from fastapi.exceptions import RequestValidationError
+from datetime import UTC, datetime
+from typing import Callable, Dict
 
-from .exceptions import ServiceException, ErrorCode
+from fastapi import HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+
 from ..logging import get_logger
+from .exceptions import ErrorCode, ServiceException
 
 logger = get_logger(__name__)
+
 
 class ErrorHandler:
     """중앙 에러 핸들러"""
@@ -18,7 +20,7 @@ class ErrorHandler:
             ServiceException: self._handle_service_exception,
             HTTPException: self._handle_http_exception,
             RequestValidationError: self._handle_validation_error,
-            Exception: self._handle_generic_exception
+            Exception: self._handle_generic_exception,
         }
 
     def register_handler(self, exception_type: type, handler: Callable):
@@ -35,7 +37,9 @@ class ErrorHandler:
             # 등록되지 않은 예외 타입
             return await self._handle_generic_exception(request, exc)
 
-    async def _handle_service_exception(self, request: Request, exc: ServiceException) -> JSONResponse:
+    async def _handle_service_exception(
+        self, request: Request, exc: ServiceException
+    ) -> JSONResponse:
         """서비스 예외 처리"""
         logger.error(
             "service_exception_occurred",
@@ -45,22 +49,21 @@ class ErrorHandler:
             status_code=exc.status_code,
             path=request.url.path,
             method=request.method,
-            exc_info=True
+            exc_info=True,
         )
 
-        return JSONResponse(
-            status_code=exc.status_code,
-            content=exc.to_dict()
-        )
+        return JSONResponse(status_code=exc.status_code, content=exc.to_dict())
 
-    async def _handle_http_exception(self, request: Request, exc: HTTPException) -> JSONResponse:
+    async def _handle_http_exception(
+        self, request: Request, exc: HTTPException
+    ) -> JSONResponse:
         """HTTP 예외 처리"""
         logger.warning(
             "http_exception_occurred",
             status_code=exc.status_code,
             detail=exc.detail,
             path=request.url.path,
-            method=request.method
+            method=request.method,
         )
 
         return JSONResponse(
@@ -69,17 +72,19 @@ class ErrorHandler:
                 "error_code": f"HTTP_{exc.status_code}",
                 "message": exc.detail,
                 "timestamp": datetime.now(UTC).isoformat(),
-                "path": request.url.path
-            }
+                "path": request.url.path,
+            },
         )
 
-    async def _handle_validation_error(self, request: Request, exc: RequestValidationError) -> JSONResponse:
+    async def _handle_validation_error(
+        self, request: Request, exc: RequestValidationError
+    ) -> JSONResponse:
         """검증 에러 처리"""
         logger.warning(
             "validation_error_occurred",
             errors=exc.errors(),
             path=request.url.path,
-            method=request.method
+            method=request.method,
         )
 
         return JSONResponse(
@@ -87,16 +92,15 @@ class ErrorHandler:
             content={
                 "error_code": ErrorCode.VALIDATION_ERROR,
                 "message": "Validation failed",
-                "details": {
-                    "errors": exc.errors(),
-                    "body": exc.body
-                },
+                "details": {"errors": exc.errors(), "body": exc.body},
                 "timestamp": datetime.now(UTC).isoformat(),
-                "path": request.url.path
-            }
+                "path": request.url.path,
+            },
         )
 
-    async def _handle_generic_exception(self, request: Request, exc: Exception) -> JSONResponse:
+    async def _handle_generic_exception(
+        self, request: Request, exc: Exception
+    ) -> JSONResponse:
         """일반 예외 처리"""
         logger.error(
             "unexpected_error_occurred",
@@ -105,7 +109,7 @@ class ErrorHandler:
             path=request.url.path,
             method=request.method,
             traceback=traceback.format_exc(),
-            exc_info=True
+            exc_info=True,
         )
 
         return JSONResponse(
@@ -114,12 +118,14 @@ class ErrorHandler:
                 "error_code": ErrorCode.UNKNOWN_ERROR,
                 "message": "Internal server error",
                 "timestamp": datetime.now(UTC).isoformat(),
-                "path": request.url.path
-            }
+                "path": request.url.path,
+            },
         )
+
 
 # 전역 에러 핸들러 인스턴스
 error_handler = ErrorHandler()
+
 
 def get_error_handler() -> ErrorHandler:
     """전역 에러 핸들러 조회"""

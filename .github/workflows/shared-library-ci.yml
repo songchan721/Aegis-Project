@@ -146,9 +146,7 @@ jobs:
         version: ${{ env.POETRY_VERSION }}
     
     - name: Install dependencies
-      run: |
-        poetry install --no-interaction --with dev
-        poetry add --group dev flake8 black isort mypy
+      run: poetry install --no-interaction --with dev
     
     - name: Run Black (code formatting check)
       run: poetry run black --check aegis_shared/
@@ -221,9 +219,7 @@ jobs:
         version: ${{ env.POETRY_VERSION }}
     
     - name: Install dependencies
-      run: |
-        poetry install --no-interaction --with dev
-        poetry add --group dev bandit safety
+      run: poetry install --no-interaction --with dev
     
     - name: Run Bandit (security linting)
       run: poetry run bandit -r aegis_shared/ -f json -o bandit-report.json

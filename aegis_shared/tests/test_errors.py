@@ -1,36 +1,38 @@
 """
 Tests for errors module.
 """
+
+from datetime import datetime
+from unittest.mock import Mock
+
 import pytest
-from datetime import datetime, UTC
-from unittest.mock import Mock, AsyncMock
-from fastapi import Request, HTTPException
+from fastapi import HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, ValidationError, field_validator
 
 from aegis_shared.errors.exceptions import (
     AegisBaseException,
-    ServiceException,
-    ValidationError as AegisValidationError,
-    EntityNotFoundError,
-    DuplicateEntityError,
     AuthenticationError,
     AuthorizationError,
-    ExternalServiceError,
-    DatabaseError,
-    MessagePublishError,
     CacheError,
-    InsufficientPermissionsError,
-    TokenExpiredError,
-    InvalidTokenError,
+    DatabaseError,
+    DuplicateEntityError,
+    EntityNotFoundError,
     ErrorCode,
+    ExternalServiceError,
+    InsufficientPermissionsError,
+    InvalidTokenError,
+    MessagePublishError,
+    ServiceException,
+    TokenExpiredError,
 )
+from aegis_shared.errors.exceptions import ValidationError as AegisValidationError
 from aegis_shared.errors.handlers import ErrorHandler
-
 
 # ============================================================================
 # Test 1: Exception Classes
 # ============================================================================
+
 
 class TestExceptionClasses:
     """예외 클래스 테스트"""
@@ -45,7 +47,7 @@ class TestExceptionClasses:
             error_code="TEST_001",
             message="Test error",
             details={"key": "value"},
-            status_code=400
+            status_code=400,
         )
         assert exc.error_code == "TEST_001"
         assert exc.message == "Test error"
@@ -59,7 +61,7 @@ class TestExceptionClasses:
             error_code="TEST_002",
             message="Test error 2",
             details={"field": "value"},
-            status_code=500
+            status_code=500,
         )
         result = exc.to_dict()
 
@@ -125,7 +127,7 @@ class TestExceptionClasses:
 
     def test_message_publish_error(self):
         """MessagePublishError 테스트"""
-        exc = MessagePublishError( topic="user.created", message = "Kafka unavailable")
+        exc = MessagePublishError(topic="user.created", message="Kafka unavailable")
         assert exc.error_code == ErrorCode.MESSAGE_PUBLISH_ERROR
         assert exc.status_code == 500
         assert "user.created" in exc.message
@@ -164,6 +166,7 @@ class TestExceptionClasses:
 # Test 2: Error Handler
 # ============================================================================
 
+
 class TestErrorHandler:
     """에러 핸들러 테스트"""
 
@@ -185,7 +188,7 @@ class TestErrorHandler:
             error_code="TEST_001",
             message="Test error",
             details={"field": "value"},
-            status_code=400
+            status_code=400,
         )
 
         response = await handler.handle_error(mock_request, exc)
@@ -211,26 +214,33 @@ class TestErrorHandler:
     @pytest.mark.asyncio
     async def test_handle_validation_error(self, handler, mock_request):
         """RequestValidationError 핸들링 테스트"""
+
         # ValidationError를 생성하기 위한 Pydantic 모델
         class TestModel(BaseModel):
             email: str
             age: int
 
-            @field_validator('email')
+            @field_validator("email")
             @classmethod
             def validate_email(cls, v):
-                if '@' not in v:
-                    raise ValueError('Invalid email')
+                if "@" not in v:
+                    raise ValueError("Invalid email")
                 return v
 
         # ValidationError 발생시키기
         try:
             TestModel(email="invalid", age="not_an_int")
-        except ValidationError as ve:
+        except ValidationError:
             # RequestValidationError로 래핑
-            exc = RequestValidationError([
-                {"type": "value_error", "loc": ("body", "email"), "msg": "Invalid email"}
-            ])
+            exc = RequestValidationError(
+                [
+                    {
+                        "type": "value_error",
+                        "loc": ("body", "email"),
+                        "msg": "Invalid email",
+                    }
+                ]
+            )
 
             response = await handler.handle_error(mock_request, exc)
 
@@ -254,11 +264,13 @@ class TestErrorHandler:
     @pytest.mark.asyncio
     async def test_register_custom_handler(self, handler, mock_request):
         """커스텀 핸들러 등록 테스트"""
+
         class CustomException(Exception):
             pass
 
         async def custom_handler(request, exc):
             from fastapi.responses import JSONResponse
+
             return JSONResponse(status_code=418, content={"error": "custom"})
 
         handler.register_handler(CustomException, custom_handler)
@@ -273,18 +285,19 @@ class TestErrorHandler:
 # Test 3: Error Code Registry
 # ============================================================================
 
+
 class TestErrorCode:
     """에러 코드 레지스트리 테스트"""
 
     def test_error_codes_defined(self):
         """주요 에러 코드가 정의되어 있는지 확인"""
-        assert hasattr(ErrorCode, 'UNKNOWN_ERROR')
-        assert hasattr(ErrorCode, 'VALIDATION_ERROR')
-        assert hasattr(ErrorCode, 'AUTHENTICATION_ERROR')
-        assert hasattr(ErrorCode, 'AUTHORIZATION_ERROR')
-        assert hasattr(ErrorCode, 'NOT_FOUND_ERROR')
-        assert hasattr(ErrorCode, 'DUPLICATE_ERROR')
-        assert hasattr(ErrorCode, 'DATABASE_ERROR')
+        assert hasattr(ErrorCode, "UNKNOWN_ERROR")
+        assert hasattr(ErrorCode, "VALIDATION_ERROR")
+        assert hasattr(ErrorCode, "AUTHENTICATION_ERROR")
+        assert hasattr(ErrorCode, "AUTHORIZATION_ERROR")
+        assert hasattr(ErrorCode, "NOT_FOUND_ERROR")
+        assert hasattr(ErrorCode, "DUPLICATE_ERROR")
+        assert hasattr(ErrorCode, "DATABASE_ERROR")
 
     def test_error_code_format(self):
         """에러 코드 형식 검증"""
@@ -299,13 +312,14 @@ class TestErrorCode:
 # Test 4: Integration Test
 # ============================================================================
 
+
 async def test_error_response_format():
     """에러 응답 형식 통합 테스트"""
     exc = ServiceException(
         error_code="TEST_001",
         message="Test error",
         details={"key": "value"},
-        status_code=400
+        status_code=400,
     )
 
     response_dict = exc.to_dict()

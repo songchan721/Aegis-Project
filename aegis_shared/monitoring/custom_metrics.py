@@ -1,17 +1,23 @@
 from prometheus_client import Counter, Gauge, Histogram
 
+
 def create_counter(name: str, documentation: str, labels: list[str] = None) -> Counter:
     return Counter(name, documentation, labels)
+
 
 def create_gauge(name: str, documentation: str, labels: list[str] = None) -> Gauge:
     return Gauge(name, documentation, labels)
 
-def create_histogram(name: str, documentation: str, labels: list[str] = None) -> Histogram:
+
+def create_histogram(
+    name: str, documentation: str, labels: list[str] = None
+) -> Histogram:
     return Histogram(name, documentation, labels)
+
 
 class CustomMetricsManager:
     """커스텀 메트릭 관리자"""
-    
+
     def __init__(self, registry=None):
         """커스텀 메트릭 관리자 초기화
 
@@ -22,21 +28,39 @@ class CustomMetricsManager:
         self.counters = {}
         self.gauges = {}
         self.histograms = {}
-    
-    def create_counter(self, name: str, documentation: str = None, description: str = None, labels: list[str] = None) -> Counter:
+
+    def create_counter(
+        self,
+        name: str,
+        documentation: str = None,
+        description: str = None,
+        labels: list[str] = None,
+    ) -> Counter:
         doc = description or documentation or f"Counter metric: {name}"
         counter = Counter(name, doc, labelnames=labels or [], registry=self.registry)
         self.counters[name] = counter
         return counter
-    
-    def create_gauge(self, name: str, documentation: str = None, description: str = None, labels: list[str] = None) -> Gauge:
+
+    def create_gauge(
+        self,
+        name: str,
+        documentation: str = None,
+        description: str = None,
+        labels: list[str] = None,
+    ) -> Gauge:
         doc = description or documentation or f"Gauge metric: {name}"
         gauge = Gauge(name, doc, labelnames=labels or [], registry=self.registry)
         self.gauges[name] = gauge
         return gauge
-    
-    def create_histogram(self, name: str, description: str = None, documentation: str = None,
-                         labels: list[str] = None, buckets: list[float] = None) -> Histogram:
+
+    def create_histogram(
+        self,
+        name: str,
+        description: str = None,
+        documentation: str = None,
+        labels: list[str] = None,
+        buckets: list[float] = None,
+    ) -> Histogram:
         """히스토그램 생성
 
         Args:

@@ -1,12 +1,12 @@
 import asyncio
 import json
-from typing import Dict, Any, Callable, Optional, List
-from datetime import datetime
+from typing import Callable, Dict, List, Optional
 
-from .schemas import VersionedEvent, EventSubscription, DeadLetterEvent
 from ..logging import get_logger
+from .schemas import EventSubscription
 
 logger = get_logger(__name__)
+
 
 class EventSubscriber:
     """이벤트 구독자"""
@@ -17,7 +17,7 @@ class EventSubscriber:
         group_id: str,
         topics: List[str],
         auto_offset_reset: str = "latest",
-        consumer=None  # For dependency injection (testing)
+        consumer=None,  # For dependency injection (testing)
     ):
         self.bootstrap_servers = bootstrap_servers
         self.group_id = group_id
@@ -41,11 +41,11 @@ class EventSubscriber:
                     bootstrap_servers=self.bootstrap_servers,
                     group_id=self.group_id,
                     auto_offset_reset=self.auto_offset_reset,
-                    value_deserializer=lambda m: json.loads(m.decode('utf-8')),
-                    key_deserializer=lambda m: m.decode('utf-8') if m else None,
+                    value_deserializer=lambda m: json.loads(m.decode("utf-8")),
+                    key_deserializer=lambda m: m.decode("utf-8") if m else None,
                     enable_auto_commit=True,
                     auto_commit_interval_ms=1000,
-                    max_poll_records=100
+                    max_poll_records=100,
                 )
 
             # Subscribe to topics
@@ -57,7 +57,7 @@ class EventSubscriber:
                 "event_subscriber_started",
                 group_id=self.group_id,
                 topics=self.topics,
-                bootstrap_servers=self.bootstrap_servers
+                bootstrap_servers=self.bootstrap_servers,
             )
 
         except Exception as e:
@@ -84,16 +84,22 @@ class EventSubscriber:
 
     def handler(self, event_type: str):
         """데코레이터 형태로 이벤트 핸들러 등록"""
+
         def decorator(func: Callable):
             self.register_handler(event_type, func)
             return func
+
         return decorator
 
     async def _process_message(self, message):
         """메시지 처리"""
         try:
             # 메시지 파싱
-            event_data = json.loads(message.value.decode('utf-8')) if isinstance(message.value, bytes) else message.value
+            event_data = (
+                json.loads(message.value.decode("utf-8"))
+                if isinstance(message.value, bytes)
+                else message.value
+            )
             event_type = event_data.get("event_type")
 
             # 핸들러 조회 및 실행
@@ -108,26 +114,27 @@ class EventSubscriber:
                 logger.debug(
                     "event_processed",
                     event_type=event_type,
-                    topic=getattr(message, 'topic', None),
-                    partition=getattr(message, 'partition', None),
-                    offset=getattr(message, 'offset', None)
+                    topic=getattr(message, "topic", None),
+                    partition=getattr(message, "partition", None),
+                    offset=getattr(message, "offset", None),
                 )
             else:
                 logger.warning(
                     "no_handler_found",
                     event_type=event_type,
-                    topic=getattr(message, 'topic', None)
+                    topic=getattr(message, "topic", None),
                 )
 
         except Exception as e:
             logger.error(
                 "event_processing_failed",
                 error=str(e),
-                topic=getattr(message, 'topic', None),
-                partition=getattr(message, 'partition', None),
-                offset=getattr(message, 'offset', None)
+                topic=getattr(message, "topic", None),
+                partition=getattr(message, "partition", None),
+                offset=getattr(message, "offset", None),
             )
-            # Don't raise - handle errors gracefully to continue processing other messages
+            # Don't raise - handle errors gracefully to continue processing
+            # other messages
 
     async def consume(self):
         """이벤트 소비"""
@@ -142,6 +149,7 @@ class EventSubscriber:
             logger.error("event_consumption_failed", error=str(e))
             raise
 
+
 class EventSubscriberManager:
     """이벤트 구독자 관리자"""
 
@@ -155,7 +163,7 @@ class EventSubscriberManager:
         bootstrap_servers: str,
         group_id: str,
         topics: List[str],
-        subscriptions: Optional[List[EventSubscription]] = None
+        subscriptions: Optional[List[EventSubscription]] = None,
     ) -> EventSubscriber:
         """이벤트 구독자 생성"""
         async with self._lock:
@@ -188,16 +196,20 @@ class EventSubscriberManager:
                 await subscriber.stop()
             self.subscribers.clear()
 
+
 # 전역 인스턴스
 _subscriber_manager = EventSubscriberManager()
+
 
 def get_event_subscriber(
     name: str = "default",
     bootstrap_servers: str = "localhost:9092",
     group_id: str = "aegis-consumer",
-    topics: List[str] = None
+    topics: List[str] = None,
 ) -> EventSubscriber:
     """전역 이벤트 구독자 조회"""
     if topics is None:
         topics = ["default-events"]
-    return asyncio.run(_subscriber_manager.create_subscriber(name, bootstrap_servers, group_id, topics))
+    return asyncio.run(
+        _subscriber_manager.create_subscriber(name, bootstrap_servers, group_id, topics)
+    )

@@ -1,16 +1,18 @@
 """
 Test configuration and fixtures for aegis_shared package.
 """
-import pytest
+
 import asyncio
-from unittest.mock import Mock, AsyncMock
-from typing import AsyncGenerator, Generator
-import tempfile
 import os
+import tempfile
 from pathlib import Path
+from unittest.mock import AsyncMock, Mock
+
+import pytest
 
 # Test database URL for SQLite
 TEST_DATABASE_URL = "sqlite+aiosqlite:///test.db"
+
 
 @pytest.fixture(scope="session")
 def event_loop():
@@ -19,17 +21,20 @@ def event_loop():
     yield loop
     loop.close()
 
+
 @pytest.fixture
 def mock_redis():
     """Mock Redis client."""
     mock = Mock()
     mock.get = AsyncMock(return_value=None)
     mock.set = AsyncMock(return_value=True)
+    mock.setex = AsyncMock(return_value=True)
     mock.delete = AsyncMock(return_value=True)
     mock.exists = AsyncMock(return_value=False)
     mock.expire = AsyncMock(return_value=True)
     mock.flushall = AsyncMock(return_value=True)
     return mock
+
 
 @pytest.fixture
 def mock_kafka_producer():
@@ -39,6 +44,7 @@ def mock_kafka_producer():
     mock.flush = AsyncMock()
     mock.close = AsyncMock()
     return mock
+
 
 @pytest.fixture
 def mock_kafka_consumer():
@@ -50,11 +56,13 @@ def mock_kafka_consumer():
     mock.__aiter__ = AsyncMock(return_value=iter([]))
     return mock
 
+
 @pytest.fixture
 def temp_dir():
     """Create a temporary directory for tests."""
     with tempfile.TemporaryDirectory() as tmpdir:
         yield Path(tmpdir)
+
 
 @pytest.fixture
 def mock_schema_registry_path(temp_dir):
@@ -63,19 +71,18 @@ def mock_schema_registry_path(temp_dir):
     schema_path.mkdir(exist_ok=True)
     return str(schema_path)
 
+
 @pytest.fixture
 def sample_jwt_secret():
     """Sample JWT secret for testing."""
     return "test-secret-key-for-jwt-tokens"
 
+
 @pytest.fixture
 def sample_user_payload():
     """Sample user payload for JWT tokens."""
-    return {
-        "user_id": "test-user-123",
-        "email": "test@example.com",
-        "roles": ["user"]
-    }
+    return {"user_id": "test-user-123", "email": "test@example.com", "roles": ["user"]}
+
 
 @pytest.fixture
 def mock_elasticsearch():
@@ -90,12 +97,15 @@ def mock_elasticsearch():
     mock.indices.exists = AsyncMock(return_value=True)
     return mock
 
+
 @pytest.fixture
 def mock_prometheus_registry():
     """Mock Prometheus registry."""
     from unittest.mock import MagicMock
+
     mock = MagicMock()
     return mock
+
 
 @pytest.fixture
 def sample_schema_definition():
@@ -106,26 +116,14 @@ def sample_schema_definition():
         "version": "1.0.0",
         "description": "Test table schema",
         "columns": [
-            {
-                "name": "id",
-                "type": "UUID",
-                "nullable": False,
-                "primary_key": True
-            },
-            {
-                "name": "name",
-                "type": "VARCHAR(100)",
-                "nullable": False
-            },
-            {
-                "name": "created_at",
-                "type": "TIMESTAMP",
-                "nullable": False
-            }
+            {"name": "id", "type": "UUID", "nullable": False, "primary_key": True},
+            {"name": "name", "type": "VARCHAR(100)", "nullable": False},
+            {"name": "created_at", "type": "TIMESTAMP", "nullable": False},
         ],
         "references": [],
-        "indexes": []
+        "indexes": [],
     }
+
 
 @pytest.fixture
 def mock_database_session():
@@ -139,6 +137,7 @@ def mock_database_session():
     mock.refresh = AsyncMock()
     return mock
 
+
 @pytest.fixture
 def mock_sentry():
     """Mock Sentry client."""
@@ -146,6 +145,7 @@ def mock_sentry():
     mock.capture_exception = Mock()
     mock.capture_message = Mock()
     return mock
+
 
 # Environment variables for testing
 @pytest.fixture(autouse=True)
@@ -159,15 +159,15 @@ def setup_test_env():
         "KAFKA_BOOTSTRAP_SERVERS": "localhost:9092",
         "JWT_SECRET_KEY": "test-secret-key",
         "SENTRY_DSN": "",
-        "PROMETHEUS_PORT": "8000"
+        "PROMETHEUS_PORT": "8000",
     }
-    
+
     # Set environment variables
     for key, value in test_env.items():
         os.environ[key] = value
-    
+
     yield
-    
+
     # Clean up environment variables
     for key in test_env.keys():
         os.environ.pop(key, None)

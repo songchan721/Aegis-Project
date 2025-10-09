@@ -1,6 +1,7 @@
 import logging
 import sys
-from typing import Dict, Any
+from typing import Any, Dict
+
 from pythonjsonlogger.json import JsonFormatter
 
 try:
@@ -10,42 +11,50 @@ except ImportError:
     class StructlogMock:
         def configure(self, **kwargs):
             pass
+
     structlog = StructlogMock()
+
 
 class CustomJsonFormatter(JsonFormatter):
     """커스텀 JSON 로그 포맷터"""
 
-    def add_fields(self, log_record: Dict[str, Any], record: logging.LogRecord, message_dict: Dict[str, Any]) -> None:
+    def add_fields(
+        self,
+        log_record: Dict[str, Any],
+        record: logging.LogRecord,
+        message_dict: Dict[str, Any],
+    ) -> None:
         super().add_fields(log_record, record, message_dict)
 
         # event 필드 추가 (message와 동일)
-        if 'message' in log_record:
-            log_record['event'] = log_record['message']
+        if "message" in log_record:
+            log_record["event"] = log_record["message"]
 
         # level 필드 추가 (levelname을 소문자로)
-        if 'levelname' in log_record:
-            log_record['level'] = log_record['levelname'].lower()
+        if "levelname" in log_record:
+            log_record["level"] = log_record["levelname"].lower()
 
         # 요청 ID 추가
-        if not log_record.get('request_id'):
-            log_record['request_id'] = getattr(record, 'request_id', 'N/A')
+        if not log_record.get("request_id"):
+            log_record["request_id"] = getattr(record, "request_id", "N/A")
 
         # 사용자 ID 추가
-        if not log_record.get('user_id'):
-            log_record['user_id'] = getattr(record, 'user_id', 'N/A')
+        if not log_record.get("user_id"):
+            log_record["user_id"] = getattr(record, "user_id", "N/A")
 
         # 서비스 정보 추가
-        log_record['service'] = 'aegis-shared'
-        log_record['timestamp'] = log_record.get('timestamp', record.created)
+        log_record["service"] = "aegis-shared"
+        log_record["timestamp"] = log_record.get("timestamp", record.created)
+
 
 def configure_logging(
     service_name: str = "aegis-service",
     log_level: str = "INFO",
-    format_type: str = "json"
+    format_type: str = "json",
 ) -> None:
     """로깅 설정"""
     setup_logging(log_level, format_type, service_name)
-    
+
     # Configure structlog
     structlog.configure(
         processors=[
@@ -57,7 +66,7 @@ def configure_logging(
             structlog.processors.StackInfoRenderer(),
             structlog.processors.format_exc_info,
             structlog.processors.UnicodeDecoder(),
-            structlog.processors.JSONRenderer()
+            structlog.processors.JSONRenderer(),
         ],
         context_class=dict,
         logger_factory=structlog.stdlib.LoggerFactory(),
@@ -65,15 +74,16 @@ def configure_logging(
         cache_logger_on_first_use=True,
     )
 
+
 def get_logger(name: str):
     """로거 인스턴스 반환"""
     from .context import get_logger as context_get_logger
+
     return context_get_logger(name)
 
+
 def setup_logging(
-    level: str = "INFO",
-    format_type: str = "json",
-    service_name: str = "aegis-service"
+    level: str = "INFO", format_type: str = "json", service_name: str = "aegis-service"
 ) -> None:
     """로깅 설정"""
 
@@ -91,12 +101,12 @@ def setup_logging(
     if format_type.lower() == "json":
         formatter = CustomJsonFormatter(
             "%(asctime)s %(name)s %(levelname)s %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S"
+            datefmt="%Y-%m-%d %H:%M:%S",
         )
     else:
         formatter = logging.Formatter(
             f"%(asctime)s - {service_name} - %(name)s - %(levelname)s - %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S"
+            datefmt="%Y-%m-%d %H:%M:%S",
         )
 
     console_handler.setFormatter(formatter)
