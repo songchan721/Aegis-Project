@@ -2,7 +2,7 @@ import logging
 import sys
 from typing import Any, Dict
 
-from pythonjsonlogger.json import JsonFormatter
+from pythonjsonlogger.jsonlogger import JsonFormatter
 
 try:
     import structlog
