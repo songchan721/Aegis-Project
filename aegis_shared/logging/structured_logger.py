@@ -35,6 +35,11 @@ class StructuredFormatter(logging.Formatter):
         if hasattr(record, "extra_fields"):
             log_data.update(record.extra_fields)
 
+        # 예외 정보 추가 (Requirement 3.4)
+        if record.exc_info:
+            log_data["exception"] = self.formatException(record.exc_info)
+            log_data["exc_type"] = record.exc_info[0].__name__ if record.exc_info[0] else None
+
         # None 값 제거
         log_data = {k: v for k, v in log_data.items() if v is not None}
 
@@ -87,11 +92,14 @@ class ContextLogger:
 
     def _log_with_context(self, level: int, msg: str, *args, **kwargs):
         """컨텍스트 정보와 함께 로그 기록"""
+        # 표준 logging 키워드 인자들 (이들은 그대로 유지)
+        standard_kwargs = {'exc_info', 'stack_info', 'stacklevel', 'extra'}
+        
         extra_fields = {}
 
-        # kwargs에서 추가 필드 추출
+        # kwargs에서 추가 필드 추출 (표준 키워드 제외)
         for key, value in list(kwargs.items()):
-            if not key.startswith("_"):
+            if not key.startswith("_") and key not in standard_kwargs:
                 extra_fields[key] = value
                 del kwargs[key]
 
@@ -115,6 +123,11 @@ class ContextLogger:
 
     def critical(self, msg: str, *args, **kwargs):
         self._log_with_context(logging.CRITICAL, msg, *args, **kwargs)
+
+    def exception(self, msg: str, *args, **kwargs):
+        """예외 정보와 함께 에러 로그 기록 (Requirement 3.4)"""
+        kwargs.setdefault('exc_info', True)
+        self._log_with_context(logging.ERROR, msg, *args, **kwargs)
 
 
 # 기본 로거를 ContextLogger로 래핑하는 함수 오버라이드

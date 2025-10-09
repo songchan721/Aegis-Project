@@ -2,7 +2,11 @@ import json
 import logging
 from logging.handlers import RotatingFileHandler
 
-from elasticsearch import Elasticsearch
+try:
+    from elasticsearch import Elasticsearch
+except ImportError:
+    # Elasticsearch는 optional dependency
+    Elasticsearch = None
 
 
 def get_console_handler():
@@ -64,8 +68,12 @@ class StructuredFileHandler(RotatingFileHandler):
 
 
 class ElasticsearchHandler(logging.Handler):
-    def __init__(self, es_client: Elasticsearch, index_name: str):
+    """Elasticsearch에 로그를 전송하는 핸들러 (Requirement 3.5)"""
+    
+    def __init__(self, es_client, index_name: str):
         super().__init__()
+        if Elasticsearch is None:
+            raise ImportError("elasticsearch 패키지가 설치되지 않았습니다")
         self.es_client = es_client
         self.index_name = index_name
 
