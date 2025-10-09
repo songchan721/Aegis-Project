@@ -1,9 +1,10 @@
 import asyncio
 import json
+from datetime import UTC, datetime
 from typing import Callable, Dict, List, Optional
 
 from ..logging import get_logger
-from .schemas import EventSubscription
+from .schemas import DeadLetterEvent, EventSubscription, VersionedEvent
 
 logger = get_logger(__name__)
 
@@ -18,6 +19,9 @@ class EventSubscriber:
         topics: List[str],
         auto_offset_reset: str = "latest",
         consumer=None,  # For dependency injection (testing)
+        max_retries: int = 3,
+        dlq_topic: str = "dlq",
+        publisher=None,  # EventPublisher for DLQ
     ):
         self.bootstrap_servers = bootstrap_servers
         self.group_id = group_id
@@ -26,6 +30,9 @@ class EventSubscriber:
         self._consumer = consumer  # Allow DI
         self._is_running = False
         self._handlers: Dict[str, Callable] = {}
+        self.max_retries = max_retries
+        self.dlq_topic = dlq_topic
+        self._publisher = publisher
 
     async def start(self):
         """이벤트 구독자 시작"""
@@ -93,6 +100,10 @@ class EventSubscriber:
 
     async def _process_message(self, message):
         """메시지 처리"""
+        event_data = None
+        first_failure = None
+        retry_count = 0
+
         try:
             # 메시지 파싱
             event_data = (
@@ -102,22 +113,63 @@ class EventSubscriber:
             )
             event_type = event_data.get("event_type")
 
-            # 핸들러 조회 및 실행
+            # 핸들러 조회 및 실행 (재시도 로직 포함)
             handler = self._handlers.get(event_type)
             if handler:
-                # Handler can be sync or async
-                if asyncio.iscoroutinefunction(handler):
-                    await handler(event_data)
-                else:
-                    handler(event_data)
+                # Retry logic
+                for attempt in range(self.max_retries + 1):
+                    try:
+                        retry_count = attempt
+                        # Handler can be sync or async
+                        if asyncio.iscoroutinefunction(handler):
+                            await handler(event_data)
+                        else:
+                            handler(event_data)
 
-                logger.debug(
-                    "event_processed",
-                    event_type=event_type,
-                    topic=getattr(message, "topic", None),
-                    partition=getattr(message, "partition", None),
-                    offset=getattr(message, "offset", None),
-                )
+                        logger.debug(
+                            "event_processed",
+                            event_type=event_type,
+                            topic=getattr(message, "topic", None),
+                            partition=getattr(message, "partition", None),
+                            offset=getattr(message, "offset", None),
+                            retry_count=attempt,
+                        )
+                        # Success - exit retry loop
+                        return
+
+                    except Exception as handler_error:
+                        if first_failure is None:
+                            first_failure = datetime.now(UTC)
+
+                        if attempt < self.max_retries:
+                            # Retry with exponential backoff
+                            backoff = 2**attempt
+                            logger.warning(
+                                "event_processing_retry",
+                                error=str(handler_error),
+                                event_type=event_type,
+                                attempt=attempt + 1,
+                                max_retries=self.max_retries,
+                                backoff_seconds=backoff,
+                            )
+                            await asyncio.sleep(backoff)
+                        else:
+                            # Max retries reached - send to DLQ
+                            logger.error(
+                                "event_processing_failed_max_retries",
+                                error=str(handler_error),
+                                event_type=event_type,
+                                retry_count=retry_count,
+                            )
+                            await self._send_to_dlq(
+                                event_data=event_data,
+                                error_message=str(handler_error),
+                                error_type=type(handler_error).__name__,
+                                retry_count=retry_count,
+                                first_failure=first_failure,
+                            )
+                            # Don't raise - continue processing other messages
+                            return
             else:
                 logger.warning(
                     "no_handler_found",
@@ -126,6 +178,7 @@ class EventSubscriber:
                 )
 
         except Exception as e:
+            # Parsing or other unexpected errors
             logger.error(
                 "event_processing_failed",
                 error=str(e),
@@ -133,8 +186,77 @@ class EventSubscriber:
                 partition=getattr(message, "partition", None),
                 offset=getattr(message, "offset", None),
             )
-            # Don't raise - handle errors gracefully to continue processing
-            # other messages
+            # Send to DLQ if we have event data
+            if event_data:
+                await self._send_to_dlq(
+                    event_data=event_data,
+                    error_message=str(e),
+                    error_type=type(e).__name__,
+                    retry_count=0,
+                    first_failure=datetime.now(UTC),
+                )
+
+    async def _send_to_dlq(
+        self,
+        event_data: dict,
+        error_message: str,
+        error_type: str,
+        retry_count: int,
+        first_failure: datetime,
+    ) -> None:
+        """Send failed event to Dead Letter Queue."""
+        try:
+            if not self._publisher:
+                logger.warning(
+                    "dlq_publisher_not_configured",
+                    error_message=error_message,
+                )
+                return
+
+            # Reconstruct VersionedEvent from event_data
+            versioned_event = VersionedEvent(
+                event_type=event_data.get("event_type", "unknown"),
+                version=event_data.get("version", "1.0.0"),
+                timestamp=event_data.get("timestamp", datetime.now(UTC).isoformat()),
+                source=event_data.get("source", "unknown"),
+                data=event_data.get("data", {}),
+                metadata=event_data.get("metadata", {}),
+            )
+
+            now = datetime.now(UTC)
+            dlq_event_dict = {
+                "original_event": versioned_event.model_dump(),
+                "error_message": error_message,
+                "error_type": error_type,
+                "retry_count": retry_count,
+                "first_failure": first_failure.isoformat(),
+                "last_failure": now.isoformat(),
+            }
+
+            # Send to DLQ using publisher
+            dlq_message = json.dumps(dlq_event_dict).encode("utf-8")
+
+            if hasattr(self._publisher, "producer") and self._publisher.producer:
+                producer = self._publisher.producer
+                is_mock = hasattr(producer, "_is_mock") and producer._is_mock
+
+                if is_mock:
+                    await producer.send(self.dlq_topic, dlq_event_dict)
+                else:
+                    await producer.send_and_wait(self.dlq_topic, value=dlq_message)
+
+                logger.info(
+                    "event_sent_to_dlq",
+                    dlq_topic=self.dlq_topic,
+                    error_type=error_type,
+                    retry_count=retry_count,
+                )
+        except Exception as dlq_error:
+            logger.error(
+                "dlq_send_failed",
+                error=str(dlq_error),
+                original_error=error_message,
+            )
 
     async def consume(self):
         """이벤트 소비"""

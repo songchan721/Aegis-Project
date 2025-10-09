@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from typing import Any, Dict, List, Optional
 
 from ..logging import get_logger
-from .schemas import EventMessage, VersionedEvent
+from .schemas import DeadLetterEvent, EventMessage, VersionedEvent
 
 logger = get_logger(__name__)
 
@@ -12,11 +12,17 @@ logger = get_logger(__name__)
 class EventPublisher:
     """기본 이벤트 발행자"""
 
-    def __init__(self, bootstrap_servers: Optional[str] = None, kafka_producer=None):
+    def __init__(
+        self,
+        bootstrap_servers: Optional[str] = None,
+        kafka_producer=None,
+        dlq_topic: str = "dlq",
+    ):
         self.bootstrap_servers = bootstrap_servers
         self.producer = kafka_producer  # For dependency injection
         self._own_producer = kafka_producer is None  # Track if we created the producer
         self._is_running = False if kafka_producer is None else True
+        self.dlq_topic = dlq_topic
 
     async def start(self):
         """이벤트 발행자 시작"""
@@ -152,7 +158,69 @@ class EventPublisher:
                 event_type=event.event_type,
                 error=str(e),
             )
+            # Send to DLQ after all retries failed
+            await self._send_to_dlq(
+                original_event=event,
+                error_message=str(e),
+                error_type=type(e).__name__,
+                retry_count=0,
+            )
             raise
+
+    async def _send_to_dlq(
+        self,
+        original_event: VersionedEvent,
+        error_message: str,
+        error_type: str,
+        retry_count: int = 0,
+    ) -> None:
+        """Send failed event to Dead Letter Queue."""
+        try:
+            now = datetime.now(UTC)
+            dlq_event = DeadLetterEvent(
+                original_event=original_event,
+                error_message=error_message,
+                error_type=error_type,
+                retry_count=retry_count,
+                first_failure=now,
+                last_failure=now,
+            )
+
+            # Use raw Kafka producer to avoid infinite recursion
+            if self.producer:
+                dlq_message = json.dumps(
+                    {
+                        "original_event": original_event.model_dump(),
+                        "error_message": error_message,
+                        "error_type": error_type,
+                        "retry_count": retry_count,
+                        "first_failure": now.isoformat(),
+                        "last_failure": now.isoformat(),
+                    }
+                ).encode("utf-8")
+
+                is_mock = hasattr(self.producer, "_is_mock") and self.producer._is_mock
+                if is_mock:
+                    await self.producer.send(
+                        self.dlq_topic, json.loads(dlq_message.decode("utf-8"))
+                    )
+                else:
+                    await self.producer.send_and_wait(
+                        self.dlq_topic, value=dlq_message
+                    )
+
+                logger.info(
+                    "event_sent_to_dlq",
+                    dlq_topic=self.dlq_topic,
+                    error_type=error_type,
+                    retry_count=retry_count,
+                )
+        except Exception as dlq_error:
+            logger.error(
+                "dlq_send_failed",
+                error=str(dlq_error),
+                original_error=error_message,
+            )
 
     async def publish_batch(
         self, topic: str, events: List[Dict[str, Any]], version: str = "1.0.0"
