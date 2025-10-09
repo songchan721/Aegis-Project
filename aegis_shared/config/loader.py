@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     app_env: str = Field(default="development", validation_alias="APP_ENV")
 
     # 서버 설정
-    host: str = Field(default="0.0.0.0", validation_alias="HOST")
+    host: str = Field(default="0.0.0.0", validation_alias="HOST")  # nosec B104
     port: int = Field(default=8000, validation_alias="PORT")
     debug: bool = Field(default=False, validation_alias="DEBUG")
     workers: int = Field(default=1, validation_alias="WORKERS")

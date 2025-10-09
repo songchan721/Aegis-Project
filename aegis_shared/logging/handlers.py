@@ -73,6 +73,6 @@ class ElasticsearchHandler(logging.Handler):
         log_entry = self.format(record)
         try:
             self.es_client.index(index=self.index_name, body=log_entry)
-        except Exception:
-            # Handle exceptions, e.g., log to a fallback logger
+        except Exception:  # nosec B110
+            # Silently fail to avoid logging errors from breaking the application
             pass

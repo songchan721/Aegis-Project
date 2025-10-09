@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     debug: bool = Field(default=False, validation_alias="DEBUG")
 
     # 서버 설정
-    host: str = Field(default="0.0.0.0", validation_alias="HOST")
+    host: str = Field(default="0.0.0.0", validation_alias="HOST")  # nosec B104
     port: int = Field(default=8000, validation_alias="PORT")
 
     # 데이터베이스 설정
