@@ -5,7 +5,13 @@ from pydantic import BaseModel
 T = TypeVar("T")
 
 
-class PaginatedResponse(Generic[T], BaseModel):
+class PaginatedResponse(BaseModel, Generic[T]):
+    """
+    페이지네이션 응답 모델
+
+    서비스 간에 일관된 페이지네이션 응답 형식을 제공합니다.
+    """
+
     items: List[T]
     total: int
     page: int
