@@ -3,7 +3,7 @@ Tests for messaging module.
 """
 import pytest
 import json
-from datetime import datetime
+from datetime import datetime, UTC
 from unittest.mock import Mock, AsyncMock, patch, MagicMock
 from pydantic import BaseModel
 
@@ -15,8 +15,8 @@ from aegis_shared.messaging.schemas import EventSchema, EventMetadata
 from aegis_shared.errors.exceptions import MessagePublishError as MessagingError
 
 
-class TestEventSchema(BaseModel):
-    """Test event schema."""
+class CustomEventSchema(BaseModel):
+    """Custom event schema for testing."""
     event_type: str
     user_id: str
     data: dict
@@ -58,7 +58,7 @@ class TestKafkaProducer:
     @pytest.mark.asyncio
     async def test_send_message(self, kafka_producer, mock_aiokafka_producer):
         """Test sending message."""
-        message = {"key": "value", "timestamp": datetime.utcnow().isoformat()}
+        message = {"key": "value", "timestamp": datetime.now(UTC).isoformat()}
         
         await kafka_producer.send("test-topic", message)
         
@@ -67,8 +67,8 @@ class TestKafkaProducer:
         
         assert call_args[0][0] == "test-topic"  # topic
         
-        # Verify message was serialized
-        sent_value = call_args.kwargs["value"]
+        # Verify message was serialized (second positional argument)
+        sent_value = call_args[0][1]
         assert isinstance(sent_value, bytes)
         
         # Verify message content
@@ -105,8 +105,8 @@ class TestKafkaProducer:
         
         await kafka_producer.send_batch("test-topic", messages)
         
-        # Should call send for each message
-        assert mock_aiokafka_producer.send.call_count == 3
+        # Should call send_and_wait for each message
+        assert mock_aiokafka_producer.send_and_wait.call_count == 3
     
     @pytest.mark.asyncio
     async def test_producer_context_manager(self, mock_aiokafka_producer):
@@ -233,14 +233,13 @@ class TestEventSubscriber:
     @pytest.fixture
     def event_subscriber(self, mock_aiokafka_consumer):
         """Create event subscriber with mocked aiokafka."""
-        with patch('aegis_shared.messaging.subscriber.AIOKafkaConsumer', return_value=mock_aiokafka_consumer):
-            subscriber = EventSubscriber(
-                bootstrap_servers="localhost:9092",
-                group_id="test-group",
-                topics=["test-topic"]
-            )
-            subscriber._consumer = mock_aiokafka_consumer
-            return subscriber
+        subscriber = EventSubscriber(
+            bootstrap_servers="localhost:9092",
+            group_id="test-group",
+            topics=["test-topic"],
+            consumer=mock_aiokafka_consumer  # Inject mock consumer
+        )
+        return subscriber
     
     @pytest.mark.asyncio
     async def test_subscriber_start(self, event_subscriber, mock_aiokafka_consumer):
@@ -293,7 +292,7 @@ class TestEventSubscriber:
         event_data = {
             "event_type": "test.event",
             "data": {"test": "data"},
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "metadata": {"service_name": "test-service"}
         }
         mock_message.value = json.dumps(event_data).encode('utf-8')
@@ -367,11 +366,15 @@ class TestEventSchema:
         """Test event schema validation."""
         event_data = {
             "event_type": "user.created",
+            "version": "1.0.0",
+            "source": "user-service",
             "data": {"user_id": "user-123", "email": "test@example.com"},
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "metadata": {
                 "service_name": "user-service",
-                "request_id": "req-123"
+                "request_id": "req-123",
+                "version": "1.0.0",
+                "source": "user-service"
             }
         }
         
@@ -379,7 +382,7 @@ class TestEventSchema:
         
         assert event.event_type == "user.created"
         assert event.data["user_id"] == "user-123"
-        assert event.metadata.service_name == "user-service"
+        assert event.metadata["service_name"] == "user-service"
     
     def test_event_schema_validation_error(self):
         """Test event schema validation with invalid data."""
@@ -399,7 +402,7 @@ class TestEventSchema:
             "data": {"email": "test@example.com"}
         }
         
-        event = TestEventSchema(**event_data)
+        event = CustomEventSchema(**event_data)
         
         assert event.event_type == "user.created"
         assert event.user_id == "user-123"
@@ -418,13 +421,13 @@ class TestMessagingIntegration:
         
         # Create publisher and subscriber
         publisher = EventPublisher(kafka_producer=mock_producer)
-        
-        with patch('aegis_shared.messaging.subscriber.AIOKafkaConsumer', return_value=mock_consumer):
-            subscriber = EventSubscriber(
-                bootstrap_servers="localhost:9092",
-                group_id="test-group",
-                topics=["integration-topic"]
-            )
+
+        subscriber = EventSubscriber(
+            bootstrap_servers="localhost:9092",
+            group_id="test-group",
+            topics=["integration-topic"],
+            consumer=mock_consumer
+        )
         
         # Register handler
         received_events = []

@@ -5,7 +5,7 @@ Kafka를 통한 이벤트 발행 기능을 제공합니다.
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Any, Dict, Optional
 from aegis_shared.logging import get_logger, service_name_var, request_id_var
 
@@ -44,7 +44,7 @@ class EventPublisher:
         """
         event = {
             "event_type": event_type,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "data": data,
             "metadata": {
                 "service": service_name_var.get(),

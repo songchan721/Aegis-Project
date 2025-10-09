@@ -1,6 +1,15 @@
 import functools
 import asyncio
 from typing import Callable, Any
+from sqlalchemy.exc import OperationalError, IntegrityError
+from .exceptions import DatabaseConnectionError, DatabaseError
+
+# Retryable database exceptions
+RETRYABLE_EXCEPTIONS = (
+    OperationalError,
+    DatabaseConnectionError,
+    ConnectionError,
+)
 
 def with_db_retry(max_retries: int = 3, delay: float = 1.0):
     """데이터베이스 재시도 데코레이터"""
@@ -10,10 +19,13 @@ def with_db_retry(max_retries: int = 3, delay: float = 1.0):
             for attempt in range(max_retries):
                 try:
                     return await func(*args, **kwargs)
-                except Exception as e:
+                except RETRYABLE_EXCEPTIONS as e:
                     if attempt == max_retries - 1:
                         raise
                     await asyncio.sleep(delay * (2 ** attempt))
+                except Exception:
+                    # Non-retryable exceptions are raised immediately
+                    raise
             return None
         return wrapper
     return decorator

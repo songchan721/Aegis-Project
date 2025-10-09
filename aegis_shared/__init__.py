@@ -4,7 +4,7 @@ Aegis Shared Library
 이지스(Aegis) 시스템의 모든 마이크로서비스가 공통으로 사용하는 핵심 기능을 제공하는 라이브러리
 """
 
-__version__ = "1.0.0"
+__version__ = "0.1.0"
 __author__ = "Aegis Team"
 __email__ = "team@aegis.com"
 

@@ -79,8 +79,8 @@ class BaseRepository(Generic[T]):
     
     async def soft_delete(self, id: Any) -> Optional[T]:
         """소프트 삭제 (deleted_at 설정)"""
-        from datetime import datetime
-        return await self.update(id, deleted_at=datetime.utcnow())
+        from datetime import datetime, UTC
+        return await self.update(id, deleted_at=datetime.now(UTC))
     
     async def list(
         self, 

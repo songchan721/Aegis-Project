@@ -74,9 +74,9 @@ class BaseRepository(Generic[T]):
     async def delete(self, id: Union[UUID, int], soft: bool = False) -> bool:
         if soft and hasattr(self.model, 'deleted_at'):
             # Soft delete by setting deleted_at timestamp
-            from datetime import datetime
+            from datetime import datetime, UTC
             result = await self.session.execute(
-                update(self.model).where(self.model.id == id).values(deleted_at=datetime.utcnow())
+                update(self.model).where(self.model.id == id).values(deleted_at=datetime.now(UTC))
             )
             return result.rowcount > 0
         else:
@@ -87,9 +87,9 @@ class BaseRepository(Generic[T]):
     async def soft_delete(self, id: Union[UUID, int]) -> Optional[T]:
         """Soft delete an entity by setting deleted_at timestamp."""
         if hasattr(self.model, 'deleted_at'):
-            from datetime import datetime
+            from datetime import datetime, UTC
             await self.session.execute(
-                update(self.model).where(self.model.id == id).values(deleted_at=datetime.utcnow())
+                update(self.model).where(self.model.id == id).values(deleted_at=datetime.now(UTC))
             )
             return await self.get(id)
         else:

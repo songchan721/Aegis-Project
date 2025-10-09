@@ -4,7 +4,7 @@ JWT 토큰 처리기
 JWT 토큰 생성 및 검증 기능을 제공합니다.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from typing import Dict, Any, Optional
 import jwt
 
@@ -48,13 +48,13 @@ class JWTHandler:
         to_encode = data.copy()
         
         if expires_delta:
-            expire = datetime.utcnow() + expires_delta
+            expire = datetime.now(UTC) + expires_delta
         else:
-            expire = datetime.utcnow() + timedelta(minutes=30)
+            expire = datetime.now(UTC) + timedelta(minutes=30)
         
         to_encode.update({
             "exp": expire,
-            "iat": datetime.utcnow(),
+            "iat": datetime.now(UTC),
             "type": "access"
         })
         
@@ -78,13 +78,13 @@ class JWTHandler:
         to_encode = data.copy()
         
         if expires_delta:
-            expire = datetime.utcnow() + expires_delta
+            expire = datetime.now(UTC) + expires_delta
         else:
-            expire = datetime.utcnow() + timedelta(days=7)
+            expire = datetime.now(UTC) + timedelta(days=7)
         
         to_encode.update({
             "exp": expire,
-            "iat": datetime.utcnow(),
+            "iat": datetime.now(UTC),
             "type": "refresh"
         })
         

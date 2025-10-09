@@ -1,5 +1,5 @@
 from typing import Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, UTC
 
 class ErrorCode:
     """중앙 에러 코드 레지스트리"""
@@ -59,7 +59,7 @@ class ServiceException(Exception):
         self.details = details or {}
         self.status_code = status_code
         self.cause = cause
-        self.timestamp = datetime.utcnow()
+        self.timestamp = datetime.now(UTC)
 
     def to_dict(self) -> Dict[str, Any]:
         """에러 정보를 딕셔너리로 변환"""
@@ -168,15 +168,22 @@ class MessagePublishError(ServiceException):
 
     def __init__(
         self,
-        topic: str,
         message: str,
+        topic: Optional[str] = None,
         details: Optional[Dict[str, Any]] = None,
         cause: Optional[Exception] = None
     ):
+        if topic:
+            full_message = f"Message publish error ({topic}): {message}"
+            topic_details = details or {"topic": topic}
+        else:
+            full_message = f"Message publish error: {message}"
+            topic_details = details or {}
+
         super().__init__(
             error_code=ErrorCode.MESSAGE_PUBLISH_ERROR,
-            message=f"Message publish error ({topic}): {message}",
-            details=details or {"topic": topic},
+            message=full_message,
+            details=topic_details,
             status_code=500,
             cause=cause
         )

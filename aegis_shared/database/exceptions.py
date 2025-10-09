@@ -1,6 +1,13 @@
 class DatabaseError(Exception):
     """Base exception for database related errors."""
-    pass
+
+    def __init__(self, message: str, **kwargs):
+        super().__init__(message)
+        self.message = message
+        self.error_code = self.__class__.__name__
+        self.details = kwargs
+        for key, value in kwargs.items():
+            setattr(self, key, value)
 
 class ConnectionError(DatabaseError):
     """Raised when a connection to the database fails."""

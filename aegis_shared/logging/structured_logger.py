@@ -6,7 +6,7 @@ JSON 형식의 구조화된 로그를 생성하고 컨텍스트 정보를 자동
 
 import logging
 import json
-from datetime import datetime
+from datetime import datetime, UTC
 from contextvars import ContextVar
 from typing import Optional, Dict, Any
 
@@ -21,7 +21,7 @@ class StructuredFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         """로그 레코드를 JSON 형식으로 포맷팅"""
         log_data = {
-            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "timestamp": datetime.now(UTC).isoformat() + "Z",
             "level": record.levelname.lower(),
             "logger": record.name,
             "message": record.getMessage(),

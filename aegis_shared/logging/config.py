@@ -1,7 +1,7 @@
 import logging
 import sys
 from typing import Dict, Any
-from pythonjsonlogger import jsonlogger
+from pythonjsonlogger.json import JsonFormatter
 
 try:
     import structlog
@@ -12,7 +12,7 @@ except ImportError:
             pass
     structlog = StructlogMock()
 
-class CustomJsonFormatter(jsonlogger.JsonFormatter):
+class CustomJsonFormatter(JsonFormatter):
     """커스텀 JSON 로그 포맷터"""
 
     def add_fields(self, log_record: Dict[str, Any], record: logging.LogRecord, message_dict: Dict[str, Any]) -> None:

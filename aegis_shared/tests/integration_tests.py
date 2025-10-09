@@ -22,7 +22,7 @@ from aegis_shared.logging.config import configure_logging, get_logger
 from aegis_shared.logging.context import add_context, clear_context
 from aegis_shared.messaging.publisher import EventPublisher
 from aegis_shared.messaging.subscriber import EventSubscriber
-from aegis_shared.cache.client import CacheClient
+from aegis_shared.cache.redis_client import CacheClient
 from aegis_shared.monitoring.metrics import MetricsCollector
 from aegis_shared.config.loader import ConfigLoader
 from aegis_shared.schemas.registry import SchemaRegistry
@@ -595,7 +595,7 @@ class TestFullStackIntegration:
         # 4. Simulate business logic
         business_data = {
             "user_id": verified_payload["user_id"],
-            "processed_at": datetime.utcnow().isoformat(),
+            "processed_at": datetime.now(UTC).isoformat(),
             "result": "integration_test_success"
         }
         

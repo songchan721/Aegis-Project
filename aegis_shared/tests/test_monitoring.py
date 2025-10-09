@@ -47,11 +47,13 @@ class TestMetricsCollector:
         registry = metrics_collector.registry
         
         # Check that request counter exists
-        for collector in registry._collector_to_names:
-            if hasattr(collector, '_name') and 'requests_total' in collector._name:
-                assert True
+        found = False
+        for collector, names in registry._collector_to_names.items():
+            if 'requests_total' in names:
+                found = True
                 break
-        else:
+
+        if not found:
             pytest.fail("Request counter not found")
     
     def test_track_database_metrics(self, metrics_collector):

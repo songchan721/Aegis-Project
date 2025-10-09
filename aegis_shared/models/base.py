@@ -4,25 +4,28 @@
 모든 엔티티가 상속받는 기본 모델을 제공합니다.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict, field_serializer
 from typing import Optional, List, Any
-from datetime import datetime
+from datetime import datetime, UTC
 from uuid import UUID, uuid4
 
 class BaseEntity(BaseModel):
     """모든 엔티티의 기본 모델"""
-    
+
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID = Field(default_factory=uuid4)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     deleted_at: Optional[datetime] = None
-    
-    class Config:
-        from_attributes = True
-        json_encoders = {
-            datetime: lambda v: v.isoformat(),
-            UUID: lambda v: str(v)
-        }
+
+    @field_serializer('created_at', 'updated_at', 'deleted_at', when_used='json')
+    def serialize_datetime(self, dt: Optional[datetime]) -> Optional[str]:
+        return dt.isoformat() if dt else None
+
+    @field_serializer('id', when_used='json')
+    def serialize_uuid(self, u: UUID) -> str:
+        return str(u)
 
 class PaginatedResponse(BaseModel):
     """페이지네이션 응답"""

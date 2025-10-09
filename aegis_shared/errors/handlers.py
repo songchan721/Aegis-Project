@@ -1,5 +1,6 @@
 import traceback
 from typing import Callable, Dict, Any
+from datetime import datetime, UTC
 from fastapi import Request, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
@@ -67,7 +68,7 @@ class ErrorHandler:
             content={
                 "error_code": f"HTTP_{exc.status_code}",
                 "message": exc.detail,
-                "timestamp": exc.detail,  # 현재 시간으로 수정 필요
+                "timestamp": datetime.now(UTC).isoformat(),
                 "path": request.url.path
             }
         )
@@ -90,7 +91,7 @@ class ErrorHandler:
                     "errors": exc.errors(),
                     "body": exc.body
                 },
-                "timestamp": exc.body,  # 현재 시간으로 수정 필요
+                "timestamp": datetime.now(UTC).isoformat(),
                 "path": request.url.path
             }
         )
@@ -112,7 +113,7 @@ class ErrorHandler:
             content={
                 "error_code": ErrorCode.UNKNOWN_ERROR,
                 "message": "Internal server error",
-                "timestamp": "현재 시간",  # 현재 시간으로 수정 필요
+                "timestamp": datetime.now(UTC).isoformat(),
                 "path": request.url.path
             }
         )
